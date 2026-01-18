@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
+use log::warn;
 use reqwest::Client;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
@@ -41,8 +42,24 @@ pub async fn install_butler(mut progress: ProgressCallback<'_>) -> Result<PathBu
     let url = BROTH_URL.replace("{os}", os).replace("{arch}", arch);
     let cache_path = env::cache_dir().join("butler.zip");
 
-    download_with_progress(&url, &cache_path, &mut progress).await?;
-    extract_zip(&cache_path, &dir)?;
+    // Retry once on a bad ZIP to recover from truncated downloads.
+    for attempt in 0..2 {
+        download_with_progress(&url, &cache_path, &mut progress).await?;
+        match extract_zip(&cache_path, &dir) {
+            Ok(_) => break,
+            Err(err) if attempt == 0 => {
+                warn!(
+                    "install_butler: zip extract failed ({}); redownloading once",
+                    err
+                );
+                let _ = fs::remove_file(&cache_path);
+                let _ = fs::remove_dir_all(&dir);
+                fs::create_dir_all(&dir)
+                    .map_err(|e| format!("failed to recreate butler directory: {e}"))?;
+            }
+            Err(err) => return Err(err),
+        }
+    }
 
     let _ = fs::remove_file(&cache_path);
 
