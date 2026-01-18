@@ -1,0 +1,1985 @@
+use std::collections::HashSet;
+use std::fmt::Write;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::{fs, path::Path};
+
+use eframe::egui::{
+    self, Align, Color32, Frame, Layout, Margin, RichText, Rounding, Stroke, Vec2, epaint::Shadow,
+};
+use scraper::{Html, Selector};
+use serde::Deserialize;
+use tokio::runtime::Runtime;
+use tokio::sync::{Mutex, mpsc};
+
+use crate::engine::LauncherEngine;
+use crate::engine::state::{AppState, AuthMode, UserAction};
+use crate::env;
+use crate::mods::{CurseForgeMod, ModAuthor};
+use crate::process::ProcessLauncher;
+use crate::storage::StorageManager;
+
+const NEWS_PATH: &str = "assets/news.json";
+const NEWS_URL: &str = "https://hytale.com/news";
+const NEWS_MAX_ITEMS: usize = 6;
+const NEWS_PREVIEW_FALLBACK_EN: &str = "Read more on hytale.com.";
+const PLAYER_NAME_FILE: &str = "player_name.txt";
+const DEFAULT_PLAYER_NAME: &str = "Player";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Theme {
+    Dark,
+    Light,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ThemePalette {
+    bg: Color32,
+    panel: Color32,
+    surface: Color32,
+    surface_elev: Color32,
+    sunken_surface: Color32,
+    border: Color32,
+    border_strong: Color32,
+    text_primary: Color32,
+    text_muted: Color32,
+    text_faint: Color32,
+    accent: Color32,
+    accent_soft: Color32,
+    accent_glow: Color32,
+    info: Color32,
+    warning: Color32,
+    danger: Color32,
+    diagnostic: Color32,
+}
+
+impl ThemePalette {
+    const fn dark() -> Self {
+        Self {
+            bg: Color32::from_rgb(11, 14, 19),
+            panel: Color32::from_rgb(17, 22, 29),
+            surface: Color32::from_rgb(24, 31, 39),
+            surface_elev: Color32::from_rgb(29, 37, 47),
+            sunken_surface: Color32::from_rgb(14, 18, 24),
+            border: Color32::from_rgb(45, 57, 72),
+            border_strong: Color32::from_rgb(63, 79, 97),
+            text_primary: Color32::from_rgb(228, 235, 244),
+            text_muted: Color32::from_rgb(167, 182, 197),
+            text_faint: Color32::from_rgb(129, 143, 158),
+            accent: Color32::from_rgb(92, 219, 195),
+            accent_soft: Color32::from_rgb(63, 140, 125),
+            accent_glow: Color32::from_rgb(151, 239, 217),
+            info: Color32::from_rgb(122, 186, 255),
+            warning: Color32::from_rgb(246, 195, 111),
+            danger: Color32::from_rgb(239, 117, 117),
+            diagnostic: Color32::from_rgb(200, 160, 245),
+        }
+    }
+
+    const fn light() -> Self {
+        Self {
+            bg: Color32::from_rgb(240, 245, 252),
+            panel: Color32::from_rgb(226, 234, 243),
+            surface: Color32::from_rgb(245, 249, 255),
+            surface_elev: Color32::from_rgb(255, 255, 255),
+            sunken_surface: Color32::from_rgb(217, 225, 236),
+            border: Color32::from_rgb(195, 205, 221),
+            border_strong: Color32::from_rgb(172, 186, 206),
+            text_primary: Color32::from_rgb(28, 38, 52),
+            text_muted: Color32::from_rgb(80, 99, 121),
+            text_faint: Color32::from_rgb(116, 135, 155),
+            accent: Color32::from_rgb(27, 170, 152),
+            accent_soft: Color32::from_rgb(152, 223, 212),
+            accent_glow: Color32::from_rgb(16, 190, 173),
+            info: Color32::from_rgb(64, 120, 212),
+            warning: Color32::from_rgb(235, 164, 70),
+            danger: Color32::from_rgb(219, 83, 83),
+            diagnostic: Color32::from_rgb(150, 110, 205),
+        }
+    }
+}
+
+impl Theme {
+    fn label(self, language: Language) -> &'static str {
+        match (self, language) {
+            (Theme::Dark, Language::English) => "Dark",
+            (Theme::Dark, Language::Ukrainian) => "Темна",
+            (Theme::Light, Language::English) => "Light",
+            (Theme::Light, Language::Ukrainian) => "Світла",
+        }
+    }
+
+    const fn palette(self) -> ThemePalette {
+        match self {
+            Theme::Dark => ThemePalette::dark(),
+            Theme::Light => ThemePalette::light(),
+        }
+    }
+}
+
+fn tint(color: Color32, alpha: u8) -> Color32 {
+    Color32::from_rgba_premultiplied(color.r(), color.g(), color.b(), alpha)
+}
+
+fn badge_frame(color: Color32) -> Frame {
+    Frame::none()
+        .fill(tint(color, 32))
+        .stroke(Stroke::new(1.0, color))
+        .rounding(Rounding::same(999.0))
+        .inner_margin(Margin::symmetric(10.0, 4.0))
+}
+
+fn chip_frame(color: Color32) -> Frame {
+    Frame::none()
+        .fill(tint(color, 24))
+        .stroke(Stroke::new(1.0, tint(color, 140)))
+        .rounding(Rounding::same(999.0))
+        .inner_margin(Margin::symmetric(8.0, 3.0))
+}
+
+fn meta_chip_frame(colors: &ThemePalette) -> Frame {
+    Frame::none()
+        .fill(tint(colors.text_muted, 48))
+        .stroke(Stroke::new(1.0, tint(colors.text_muted, 200)))
+        .rounding(Rounding::same(999.0))
+        .inner_margin(Margin::symmetric(8.0, 3.0))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Language {
+    English,
+    Ukrainian,
+}
+
+impl Language {
+    fn display_name(self) -> &'static str {
+        match self {
+            Language::English => "English",
+            Language::Ukrainian => "Українська",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ModSort {
+    Downloads,
+    Updated,
+    Name,
+}
+
+impl ModSort {
+    fn label(self, language: Language) -> &'static str {
+        match (self, language) {
+            (ModSort::Downloads, Language::English) => "Most downloaded",
+            (ModSort::Downloads, Language::Ukrainian) => "Найбільш завантажувані",
+            (ModSort::Updated, Language::English) => "Recently updated",
+            (ModSort::Updated, Language::Ukrainian) => "Нещодавно оновлені",
+            (ModSort::Name, Language::English) => "Name A-Z",
+            (ModSort::Name, Language::Ukrainian) => "Назва A-Z",
+        }
+    }
+}
+
+fn load_news_from_file() -> Vec<NewsItem> {
+    let path = Path::new(NEWS_PATH);
+    if let Ok(raw) = fs::read_to_string(path)
+        && let Ok(parsed) = serde_json::from_str::<Vec<NewsItem>>(&raw)
+    {
+        return parsed;
+    }
+    Vec::new()
+}
+
+fn load_player_name_from_file() -> String {
+    let path = env::default_app_dir().join(PLAYER_NAME_FILE);
+    if let Ok(raw) = fs::read_to_string(path) {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_owned();
+        }
+    }
+    DEFAULT_PLAYER_NAME.to_owned()
+}
+
+fn save_player_name_to_file(name: &str) -> Result<(), String> {
+    let path = env::default_app_dir().join(PLAYER_NAME_FILE);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("failed to create player name dir: {err}"))?;
+    }
+    fs::write(path, name.as_bytes()).map_err(|err| format!("failed to save player name: {err}"))
+}
+
+fn sanitize_player_name(name: &str) -> String {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        DEFAULT_PLAYER_NAME.to_owned()
+    } else {
+        trimmed.to_owned()
+    }
+}
+
+fn format_downloads(count: i64) -> String {
+    let count = count.max(0) as f64;
+    if count >= 1_000_000_000.0 {
+        format!("{:.1}B", count / 1_000_000_000.0)
+    } else if count >= 1_000_000.0 {
+        format!("{:.1}M", count / 1_000_000.0)
+    } else if count >= 1_000.0 {
+        format!("{:.1}k", count / 1_000.0)
+    } else {
+        format!("{:.0}", count)
+    }
+}
+
+fn format_mod_date(date: &str) -> Option<String> {
+    let trimmed = date.trim();
+    if trimmed.is_empty() {
+        None
+    } else if let Some((ymd, _)) = trimmed.split_once('T') {
+        Some(ymd.to_owned())
+    } else if let Some((ymd, _)) = trimmed.split_once(' ') {
+        Some(ymd.to_owned())
+    } else {
+        Some(trimmed.to_owned())
+    }
+}
+
+fn format_authors(authors: &[ModAuthor]) -> Option<String> {
+    if authors.is_empty() {
+        return None;
+    }
+    let names: Vec<&str> = authors
+        .iter()
+        .take(2)
+        .map(|author| author.name.as_str())
+        .collect();
+    let mut label = names.join(", ");
+    if authors.len() > 2 {
+        let extra = authors.len() - 2;
+        let _ = write!(label, " +{extra}");
+    }
+    Some(label)
+}
+
+fn mod_page_url(mod_ref: &CurseForgeMod) -> String {
+    format!("https://www.curseforge.com/hytale/mods/{}", mod_ref.slug)
+}
+
+fn collect_mod_categories(mods: &[CurseForgeMod]) -> Vec<String> {
+    let mut categories: Vec<String> = mods
+        .iter()
+        .flat_map(|m| m.categories.iter().map(|category| category.name.clone()))
+        .collect();
+    categories.sort();
+    categories.dedup();
+    categories
+}
+
+fn normalize_text(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn truncate_text(text: &str, max_len: usize) -> String {
+    if text.chars().count() <= max_len {
+        return text.to_owned();
+    }
+    let mut out = String::new();
+    for (idx, ch) in text.chars().enumerate() {
+        if idx >= max_len {
+            out.push_str("...");
+            break;
+        }
+        out.push(ch);
+    }
+    out
+}
+
+fn clean_news_preview(title: &str, preview: &str) -> String {
+    let mut cleaned = preview.trim().to_owned();
+    let title = title.trim();
+    if !title.is_empty()
+        && let Some(rest) = cleaned.strip_prefix(title)
+    {
+        let rest = rest
+            .trim_start_matches(|ch: char| {
+                ch.is_whitespace() || matches!(ch, '-' | ':' | '!' | '?' | '.' | ',')
+            })
+            .to_owned();
+        if !rest.is_empty() {
+            cleaned = rest;
+        }
+    }
+
+    let mut fixed = String::with_capacity(cleaned.len() + 8);
+    let mut prev: Option<char> = None;
+    let mut word_len = 0usize;
+    for ch in cleaned.chars() {
+        if let Some(prev_ch) = prev {
+            let needs_space = ((prev_ch == '!' || prev_ch == '?' || prev_ch == '.')
+                && ch.is_ascii_uppercase())
+                || (prev_ch.is_ascii_digit() && ch.is_ascii_uppercase())
+                || (prev_ch.is_ascii_lowercase() && ch.is_ascii_uppercase() && word_len > 2);
+            if needs_space {
+                fixed.push(' ');
+                word_len = 0;
+            }
+        }
+        fixed.push(ch);
+        if ch.is_whitespace() {
+            word_len = 0;
+        } else {
+            word_len = word_len.saturating_add(1);
+        }
+        prev = Some(ch);
+    }
+
+    fixed
+}
+
+fn element_text(element: scraper::element_ref::ElementRef<'_>) -> String {
+    normalize_text(
+        &element
+            .text()
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .collect::<Vec<_>>()
+            .join(" "),
+    )
+}
+
+fn link_from_element(element: &scraper::element_ref::ElementRef<'_>) -> Option<String> {
+    if element.value().name() == "a"
+        && let Some(href) = element.value().attr("href")
+    {
+        return Some(href.to_owned());
+    }
+    let link_selector = Selector::parse("a[href]").ok()?;
+    element
+        .select(&link_selector)
+        .filter_map(|link| link.value().attr("href"))
+        .map(str::to_owned)
+        .next()
+}
+
+fn normalize_news_url(href: &str) -> Option<String> {
+    if href.starts_with("http://") || href.starts_with("https://") {
+        return Some(href.to_owned());
+    }
+    if href.starts_with('/') {
+        let mut url = String::from("https://hytale.com");
+        url.push_str(href);
+        return Some(url);
+    }
+    None
+}
+
+fn parse_news_from_html(body: &str) -> Vec<NewsItem> {
+    let document = Html::parse_document(body);
+    let mut items = Vec::new();
+    let mut seen = HashSet::new();
+
+    let card_selectors = [
+        ".postWrapper",
+        ".post",
+        ".news-card",
+        ".news-item",
+        ".news__card",
+        ".post-card",
+        "article",
+        ".card",
+    ];
+
+    let title_selectors = [
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        ".title",
+        ".card-title",
+        ".news-card__title",
+        ".post-title",
+        ".post__details__heading",
+    ];
+    let summary_selectors = [
+        "p",
+        ".summary",
+        ".excerpt",
+        ".card-excerpt",
+        ".news-card__excerpt",
+        ".post__details__body",
+    ];
+
+    for selector in &card_selectors {
+        let selector = match Selector::parse(selector) {
+            Ok(sel) => sel,
+            Err(_) => continue,
+        };
+        for card in document.select(&selector) {
+            let href = match link_from_element(&card) {
+                Some(href) => href,
+                None => continue,
+            };
+            let url = match normalize_news_url(&href) {
+                Some(url) => url,
+                None => continue,
+            };
+            if !url.contains("/news/") || url.ends_with("/news") || url.ends_with("/news/") {
+                continue;
+            }
+            if !seen.insert(url.clone()) {
+                continue;
+            }
+
+            let title = title_selectors.iter().find_map(|sel| {
+                Selector::parse(sel)
+                    .ok()
+                    .and_then(|selector| card.select(&selector).next())
+                    .map(element_text)
+                    .filter(|text| !text.is_empty())
+            });
+
+            let summary = summary_selectors.iter().find_map(|sel| {
+                Selector::parse(sel)
+                    .ok()
+                    .and_then(|selector| card.select(&selector).next())
+                    .map(element_text)
+                    .filter(|text| !text.is_empty())
+            });
+
+            let title = title.unwrap_or_else(|| element_text(card));
+            if title.is_empty() {
+                continue;
+            }
+            let summary = summary.unwrap_or_else(|| NEWS_PREVIEW_FALLBACK_EN.to_owned());
+            let summary = clean_news_preview(&title, &summary);
+            let summary = if summary.is_empty() {
+                NEWS_PREVIEW_FALLBACK_EN.to_owned()
+            } else {
+                summary
+            };
+
+            items.push(NewsItem {
+                title: truncate_text(&title, 80),
+                preview: truncate_text(&summary, 160),
+                url,
+            });
+
+            if items.len() >= NEWS_MAX_ITEMS {
+                return items;
+            }
+        }
+    }
+
+    let link_selector = match Selector::parse("a[href*=\"/news/\"]") {
+        Ok(sel) => sel,
+        Err(_) => return items,
+    };
+    for link in document.select(&link_selector) {
+        let href = match link.value().attr("href") {
+            Some(href) => href.to_owned(),
+            None => continue,
+        };
+        let url = match normalize_news_url(&href) {
+            Some(url) => url,
+            None => continue,
+        };
+        if url.ends_with("/news") || url.ends_with("/news/") {
+            continue;
+        }
+        if !seen.insert(url.clone()) {
+            continue;
+        }
+
+        let title = element_text(link);
+        if title.is_empty() {
+            continue;
+        }
+
+        items.push(NewsItem {
+            title: truncate_text(&title, 80),
+            preview: NEWS_PREVIEW_FALLBACK_EN.into(),
+            url,
+        });
+
+        if items.len() >= NEWS_MAX_ITEMS {
+            break;
+        }
+    }
+
+    items
+}
+
+async fn fetch_news_from_web() -> Result<Vec<NewsItem>, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(NEWS_URL)
+        .header("User-Agent", "HytaleLauncher/0.1")
+        .send()
+        .await
+        .map_err(|err| err.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("News request failed: {}", resp.status()));
+    }
+    let body = resp.text().await.map_err(|err| err.to_string())?;
+    let items = parse_news_from_html(&body);
+    if items.is_empty() {
+        return Err("No news entries found.".into());
+    }
+    Ok(items)
+}
+
+pub struct LauncherApp {
+    runtime: Arc<Runtime>,
+    engine: Arc<Mutex<LauncherEngine>>,
+    cancel_flag: Arc<AtomicBool>,
+    updates_rx: mpsc::UnboundedReceiver<AppState>,
+    updates_tx: mpsc::UnboundedSender<AppState>,
+    state: AppState,
+    language: Language,
+    theme: Theme,
+    news: Vec<NewsItem>,
+    news_loading: bool,
+    news_error: Option<String>,
+    player_name: String,
+    player_name_error: Option<String>,
+    auth_mode: AuthMode,
+    diagnostics: Option<String>,
+    show_uninstall_confirm: bool,
+    mod_query: String,
+    mod_sort: ModSort,
+    mod_category_filter: Option<String>,
+    mod_results: Vec<CurseForgeMod>,
+    mod_loading: bool,
+    mod_error: Option<String>,
+    mod_updates_rx: mpsc::UnboundedReceiver<ModUpdate>,
+    mod_updates_tx: mpsc::UnboundedSender<ModUpdate>,
+    news_updates_rx: mpsc::UnboundedReceiver<NewsUpdate>,
+    news_updates_tx: mpsc::UnboundedSender<NewsUpdate>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct NewsItem {
+    title: String,
+    preview: String,
+    url: String,
+}
+
+#[derive(Debug)]
+enum ModUpdate {
+    Results(Vec<CurseForgeMod>),
+    Error(String),
+}
+
+#[derive(Debug)]
+enum NewsUpdate {
+    Results(Vec<NewsItem>),
+    Error(String),
+}
+
+fn section_frame(colors: &ThemePalette) -> Frame {
+    Frame::none()
+        .fill(colors.surface)
+        .stroke(Stroke::new(1.0, colors.border))
+        .rounding(Rounding::same(14.0))
+        .inner_margin(Margin::same(14.0))
+}
+
+fn elevated_frame(colors: &ThemePalette) -> Frame {
+    Frame::none()
+        .fill(colors.surface_elev)
+        .stroke(Stroke::new(1.0, colors.border_strong))
+        .rounding(Rounding::same(12.0))
+        .inner_margin(Margin::symmetric(12.0, 10.0))
+        .shadow(Shadow {
+            offset: Vec2::new(0.0, 2.0),
+            blur: 10.0,
+            spread: 0.0,
+            color: Color32::from_black_alpha(70),
+        })
+}
+
+fn apply_theme(ctx: &egui::Context, colors: &ThemePalette) {
+    let is_dark = colors == &ThemePalette::dark();
+    let mut visuals = if is_dark {
+        egui::Visuals::dark()
+    } else {
+        egui::Visuals::light()
+    };
+    visuals.panel_fill = colors.bg;
+    visuals.window_fill = visuals.panel_fill;
+    visuals.override_text_color = Some(colors.text_primary);
+    visuals.hyperlink_color = colors.accent_glow;
+    visuals.widgets.noninteractive.rounding = Rounding::same(10.0);
+    visuals.widgets.inactive.rounding = Rounding::same(10.0);
+    visuals.widgets.hovered.rounding = Rounding::same(10.0);
+    visuals.widgets.active.rounding = Rounding::same(10.0);
+    visuals.widgets.noninteractive.bg_fill = colors.surface;
+    visuals.widgets.inactive.bg_fill = colors.surface;
+    visuals.widgets.hovered.bg_fill = colors.accent_glow;
+    visuals.widgets.active.bg_fill = colors.accent_soft;
+    visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, colors.border);
+    visuals.widgets.inactive.bg_stroke = Stroke::new(1.0, colors.border);
+    visuals.widgets.hovered.bg_stroke = Stroke::new(1.5, colors.accent_glow);
+    visuals.widgets.active.bg_stroke = Stroke::new(1.5, colors.accent);
+    visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, colors.text_muted);
+    visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, colors.text_muted);
+    visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, colors.text_primary);
+    visuals.widgets.active.fg_stroke = Stroke::new(1.0, colors.text_primary);
+    visuals.selection.bg_fill = colors.accent;
+    visuals.selection.stroke = Stroke::new(1.0, colors.accent_glow);
+    visuals.faint_bg_color = colors.sunken_surface;
+    visuals.extreme_bg_color = tint(colors.sunken_surface, 255);
+    visuals.code_bg_color = colors.sunken_surface;
+    visuals.window_rounding = Rounding::same(14.0);
+    let shadow_color = if is_dark {
+        Color32::from_black_alpha(100)
+    } else {
+        Color32::from_black_alpha(45)
+    };
+    visuals.window_shadow = Shadow {
+        offset: Vec2::new(0.0, 6.0),
+        blur: 18.0,
+        spread: 0.0,
+        color: shadow_color,
+    };
+    visuals.popup_shadow = visuals.window_shadow;
+    ctx.set_visuals(visuals);
+
+    let mut style = (*ctx.style()).clone();
+    style.spacing.item_spacing = Vec2::new(12.0, 12.0);
+    style.spacing.button_padding = Vec2::new(16.0, 10.0);
+    ctx.set_style(style);
+}
+
+impl LauncherApp {
+    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+        let runtime =
+            Arc::new(Runtime::new().expect("tokio runtime should be available for launcher"));
+
+        let cancel_flag = Arc::new(AtomicBool::new(false));
+        let engine = LauncherEngine::new(
+            StorageManager::new(),
+            ProcessLauncher::new(),
+            cancel_flag.clone(),
+        );
+        let engine = Arc::new(Mutex::new(engine));
+        let (tx, rx) = mpsc::unbounded_channel();
+        let (mod_tx, mod_rx) = mpsc::unbounded_channel();
+        let (news_tx, news_rx) = mpsc::unbounded_channel();
+
+        let bootstrap_engine = engine.clone();
+        let bootstrap_tx = tx.clone();
+        let bootstrap_rt = runtime.clone();
+        bootstrap_rt.spawn(async move {
+            let mut locked = bootstrap_engine.lock().await;
+            locked.bootstrap(&bootstrap_tx).await;
+        });
+
+        let mut app = Self {
+            runtime,
+            engine,
+            cancel_flag,
+            updates_rx: rx,
+            updates_tx: tx,
+            state: AppState::Initialising,
+            language: Language::English,
+            theme: Theme::Dark,
+            news: load_news_from_file(),
+            news_loading: false,
+            news_error: None,
+            player_name: load_player_name_from_file(),
+            player_name_error: None,
+            auth_mode: AuthMode::Offline,
+            diagnostics: None,
+            show_uninstall_confirm: false,
+            mod_query: String::new(),
+            mod_sort: ModSort::Downloads,
+            mod_category_filter: None,
+            mod_results: Vec::new(),
+            mod_loading: false,
+            mod_error: None,
+            mod_updates_rx: mod_rx,
+            mod_updates_tx: mod_tx,
+            news_updates_rx: news_rx,
+            news_updates_tx: news_tx,
+        };
+
+        app.start_news_fetch();
+        app
+    }
+
+    fn colors(&self) -> ThemePalette {
+        self.theme.palette()
+    }
+
+    fn trigger_action(&self, action: UserAction) {
+        if matches!(action, UserAction::ClickCancelDownload) {
+            self.cancel_flag.store(true, Ordering::SeqCst);
+        }
+        let engine = self.engine.clone();
+        let tx = self.updates_tx.clone();
+        let rt = self.runtime.clone();
+        rt.spawn(async move {
+            let mut locked = engine.lock().await;
+            locked.handle_action(action, &tx).await;
+        });
+    }
+
+    fn start_mod_search(&mut self) {
+        let trimmed = self.mod_query.trim();
+        if trimmed.is_empty() || self.mod_loading {
+            return;
+        }
+        self.mod_error = None;
+        self.mod_loading = true;
+        let query = trimmed.to_owned();
+        let tx = self.mod_updates_tx.clone();
+        let engine = self.engine.clone();
+        let rt = self.runtime.clone();
+        rt.spawn(async move {
+            let service = {
+                let locked = engine.lock().await;
+                locked.mods_service()
+            };
+            let result = service.search(&query, 0).await;
+            match result {
+                Ok(resp) => {
+                    let _ = tx.send(ModUpdate::Results(resp.data));
+                }
+                Err(err) => {
+                    let _ = tx.send(ModUpdate::Error(err));
+                }
+            }
+        });
+    }
+
+    fn commit_player_name(&mut self) -> String {
+        let cleaned = sanitize_player_name(&self.player_name);
+        self.player_name = cleaned.clone();
+        match save_player_name_to_file(&cleaned) {
+            Ok(()) => {
+                self.player_name_error = None;
+            }
+            Err(err) => {
+                self.player_name_error = Some(err);
+            }
+        }
+        cleaned
+    }
+
+    fn start_news_fetch(&mut self) {
+        if self.news_loading {
+            return;
+        }
+        self.news_loading = true;
+        let tx = self.news_updates_tx.clone();
+        let rt = self.runtime.clone();
+        rt.spawn(async move {
+            match fetch_news_from_web().await {
+                Ok(items) => {
+                    let _ = tx.send(NewsUpdate::Results(items));
+                }
+                Err(err) => {
+                    let _ = tx.send(NewsUpdate::Error(err));
+                }
+            }
+        });
+    }
+
+    fn sync_state(&mut self) {
+        while let Ok(state) = self.updates_rx.try_recv() {
+            match &state {
+                AppState::DiagnosticsReady { report } => {
+                    self.diagnostics = Some(report.clone());
+                    self.state = AppState::Idle;
+                }
+                _ => {
+                    self.state = state;
+                }
+            }
+        }
+    }
+
+    fn sync_mod_updates(&mut self) {
+        while let Ok(update) = self.mod_updates_rx.try_recv() {
+            self.mod_loading = false;
+            match update {
+                ModUpdate::Results(results) => {
+                    self.mod_results = results;
+                    self.mod_error = None;
+                    if let Some(selected) = &self.mod_category_filter {
+                        let still_valid = self.mod_results.iter().any(|m| {
+                            m.categories
+                                .iter()
+                                .any(|category| category.name == *selected)
+                        });
+                        if !still_valid {
+                            self.mod_category_filter = None;
+                        }
+                    }
+                }
+                ModUpdate::Error(err) => {
+                    self.mod_error = Some(err);
+                }
+            }
+        }
+    }
+
+    fn sync_news_updates(&mut self) {
+        while let Ok(update) = self.news_updates_rx.try_recv() {
+            self.news_loading = false;
+            match update {
+                NewsUpdate::Results(items) => {
+                    if !items.is_empty() {
+                        self.news = items;
+                    }
+                    self.news_error = None;
+                }
+                NewsUpdate::Error(err) => {
+                    self.news_error = Some(err);
+                }
+            }
+        }
+    }
+
+    fn render_discord_button(&self, ui: &mut egui::Ui, colors: &ThemePalette) {
+        let control_height = 34.0;
+        let discord_btn =
+            egui::Button::new(RichText::new("Discord").color(colors.text_primary).strong())
+                .fill(colors.accent)
+                .stroke(Stroke::new(1.0, colors.accent_glow))
+                .min_size(Vec2::new(96.0, control_height));
+        if ui.add(discord_btn).clicked() {
+            ui.output_mut(|o| {
+                o.open_url = Some(egui::output::OpenUrl {
+                    url: "https://discord.gg/2ssYjNRXZ".into(),
+                    new_tab: true,
+                });
+            });
+        }
+    }
+
+    fn render_status(&self, ui: &mut egui::Ui, colors: &ThemePalette) {
+        section_frame(colors).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(self.text_status_label()).color(colors.text_muted));
+                ui.add_space(6.0);
+                let status_badge = match &self.state {
+                    AppState::ReadyToPlay { .. } => (self.text_status_ready(), colors.accent),
+                    AppState::Playing => (self.text_status_running(), colors.info),
+                    AppState::Error(_) => (self.text_status_attention(), colors.danger),
+                    AppState::Downloading { .. } => {
+                        (self.text_status_downloading(), colors.warning)
+                    }
+                    AppState::Uninstalling => (self.text_status_uninstalling(), colors.danger),
+                    AppState::DiagnosticsRunning => {
+                        (self.text_status_diagnostics(), colors.diagnostic)
+                    }
+                    _ => (self.text_status_working(), colors.text_faint),
+                };
+                badge_frame(status_badge.1).show(ui, |ui| {
+                    ui.label(RichText::new(status_badge.0).color(status_badge.1).strong());
+                });
+            });
+            ui.add_space(8.0);
+
+            match &self.state {
+                AppState::CheckingForUpdates => {
+                    ui.label(self.text_checking());
+                }
+                AppState::Downloading {
+                    file,
+                    progress,
+                    speed,
+                } => {
+                    ui.label(self.text_downloading(file));
+                    ui.add(
+                        egui::ProgressBar::new(progress / 100.0)
+                            .fill(colors.accent)
+                            .rounding(Rounding::same(10.0))
+                            .desired_height(22.0)
+                            .text(self.text_progress(*progress, speed)),
+                    );
+                }
+                AppState::Uninstalling => {
+                    ui.horizontal(|ui| {
+                        ui.add(egui::Spinner::new());
+                        ui.label(self.text_uninstalling());
+                    });
+                }
+                AppState::ReadyToPlay { version } => {
+                    ui.label(RichText::new(self.text_ready(version)).strong());
+                }
+                AppState::DiagnosticsRunning => {
+                    ui.label(self.text_diagnostics_running());
+                }
+                AppState::DiagnosticsReady { .. } => {
+                    ui.label(self.text_diagnostics_completed());
+                }
+                AppState::Playing => {
+                    ui.label(self.text_playing());
+                }
+                AppState::Error(msg) => {
+                    ui.colored_label(colors.danger, self.text_error(msg));
+                }
+                AppState::Initialising => {
+                    ui.label(self.text_initialising());
+                }
+                AppState::Idle => {
+                    ui.label(self.text_idle());
+                }
+            }
+        });
+    }
+
+    fn render_news(&self, ui: &mut egui::Ui, colors: &ThemePalette) {
+        section_frame(colors).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.heading(self.text_news_heading());
+                ui.label(
+                    RichText::new(self.text_news_subheading())
+                        .color(colors.text_muted)
+                        .small(),
+                );
+                if self.news_loading {
+                    ui.add(egui::Spinner::new());
+                    ui.label(
+                        RichText::new(self.text_news_updating())
+                            .color(colors.text_muted)
+                            .small(),
+                    );
+                }
+            });
+            ui.separator();
+
+            if let Some(err) = &self.news_error {
+                ui.colored_label(colors.danger, self.text_news_fetch_failed(err));
+            }
+
+            if self.news.is_empty() {
+                ui.label(self.text_no_news());
+                return;
+            }
+
+            for item in &self.news {
+                elevated_frame(colors).show(ui, |ui| {
+                    ui.vertical(|ui| {
+                        ui.hyperlink_to(RichText::new(&item.title).strong(), &item.url);
+                        let preview = if item.preview == NEWS_PREVIEW_FALLBACK_EN {
+                            self.text_news_preview_fallback()
+                        } else {
+                            item.preview.as_str()
+                        };
+                        ui.label(preview);
+                    });
+                });
+            }
+        });
+    }
+
+    fn render_mods(&mut self, ui: &mut egui::Ui, colors: &ThemePalette) {
+        section_frame(colors).show(ui, |ui| {
+            ui.set_min_height(520.0);
+            ui.horizontal(|ui| {
+                ui.heading(self.text_mods_heading());
+                if self.mod_loading {
+                    ui.add(egui::Spinner::new());
+                    ui.label(self.text_mods_searching());
+                } else if !self.mod_results.is_empty() {
+                    ui.label(
+                        RichText::new(self.text_mods_results_count(self.mod_results.len()))
+                            .color(colors.text_muted),
+                    );
+                }
+            });
+
+            ui.add_space(4.0);
+            ui.horizontal_wrapped(|ui| {
+                let mods_search_hint = self.text_mods_search_hint();
+                let resp = ui.add(
+                    egui::TextEdit::singleline(&mut self.mod_query)
+                        .hint_text(mods_search_hint)
+                        .desired_width(260.0),
+                );
+                if resp.changed() {
+                    self.mod_error = None;
+                }
+                let can_search = !self.mod_query.trim().is_empty() && !self.mod_loading;
+                let search_label = if self.mod_loading {
+                    self.text_mods_searching()
+                } else {
+                    self.text_mods_search_button()
+                };
+                let search_clicked = ui
+                    .add_enabled(
+                        can_search,
+                        egui::Button::new(search_label)
+                            .fill(colors.accent)
+                            .stroke(Stroke::new(1.0, colors.accent_glow))
+                            .min_size(Vec2::new(96.0, 28.0)),
+                    )
+                    .clicked();
+                let can_clear = !self.mod_loading
+                    && (!self.mod_query.is_empty()
+                        || !self.mod_results.is_empty()
+                        || self.mod_error.is_some()
+                        || self.mod_category_filter.is_some());
+                if ui
+                    .add_enabled(
+                        can_clear,
+                        egui::Button::new(self.text_mods_clear_button())
+                            .fill(colors.surface_elev)
+                            .stroke(Stroke::new(1.0, colors.border_strong))
+                            .min_size(Vec2::new(80.0, 28.0)),
+                    )
+                    .clicked()
+                {
+                    self.mod_query.clear();
+                    self.mod_results.clear();
+                    self.mod_error = None;
+                    self.mod_category_filter = None;
+                }
+                let enter_pressed =
+                    resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                if (search_clicked || enter_pressed) && can_search {
+                    self.start_mod_search();
+                    ui.memory_mut(|m| m.request_focus(resp.id));
+                }
+            });
+
+            let categories = collect_mod_categories(&self.mod_results);
+            if let Some(selected) = &self.mod_category_filter
+                && !categories.iter().any(|category| category == selected)
+            {
+                self.mod_category_filter = None;
+            }
+
+            ui.add_space(6.0);
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    RichText::new(self.text_mods_sort_label())
+                        .color(colors.text_muted)
+                        .small(),
+                );
+                egui::ComboBox::from_id_source("mod_sort")
+                    .selected_text(self.mod_sort.label(self.language))
+                    .show_ui(ui, |ui| {
+                        for option in [ModSort::Downloads, ModSort::Updated, ModSort::Name] {
+                            ui.selectable_value(
+                                &mut self.mod_sort,
+                                option,
+                                option.label(self.language),
+                            );
+                        }
+                    });
+
+                ui.label(
+                    RichText::new(self.text_mods_category_label())
+                        .color(colors.text_muted)
+                        .small(),
+                );
+                ui.add_enabled_ui(!categories.is_empty(), |ui| {
+                    let all_categories = self.text_mods_all_categories();
+                    let selected = self
+                        .mod_category_filter
+                        .as_deref()
+                        .unwrap_or(all_categories)
+                        .to_string();
+                    egui::ComboBox::from_id_source("mod_category")
+                        .selected_text(selected)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut self.mod_category_filter,
+                                None,
+                                all_categories,
+                            );
+                            for category in &categories {
+                                ui.selectable_value(
+                                    &mut self.mod_category_filter,
+                                    Some(category.clone()),
+                                    category,
+                                );
+                            }
+                        });
+                });
+            });
+
+            let total_results = self.mod_results.len();
+            let mut visible_mods: Vec<&CurseForgeMod> = self.mod_results.iter().collect();
+            if let Some(category) = &self.mod_category_filter {
+                visible_mods.retain(|m| m.categories.iter().any(|c| c.name == *category));
+            }
+            match self.mod_sort {
+                ModSort::Downloads => {
+                    visible_mods.sort_by(|a, b| b.downloadCount.cmp(&a.downloadCount));
+                }
+                ModSort::Updated => {
+                    visible_mods.sort_by(|a, b| b.dateModified.cmp(&a.dateModified));
+                }
+                ModSort::Name => {
+                    visible_mods.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+                }
+            }
+
+            if total_results > 0 {
+                ui.add_space(4.0);
+                ui.label(
+                    RichText::new(self.text_mods_showing(visible_mods.len(), total_results))
+                        .color(colors.text_faint)
+                        .small(),
+                );
+            }
+
+            ui.add_space(8.0);
+
+            if let Some(err) = &self.mod_error {
+                ui.colored_label(colors.danger, self.text_mods_search_failed(err));
+            }
+
+            if self.mod_results.is_empty() && !self.mod_loading {
+                ui.label(RichText::new(self.text_mods_none_loaded()).color(colors.text_faint));
+                return;
+            }
+
+            if visible_mods.is_empty() && !self.mod_loading {
+                ui.label(RichText::new(self.text_mods_no_match()).color(colors.text_faint));
+                return;
+            }
+
+            let scroll_height = ui.available_height().max(420.0);
+            egui::ScrollArea::vertical()
+                .max_height(scroll_height)
+                .show(ui, |ui| {
+                    for m in visible_mods {
+                        elevated_frame(colors).show(ui, |ui| {
+                            ui.vertical(|ui| {
+                                let downloads = format_downloads(m.downloadCount);
+                                let updated = format_mod_date(&m.dateModified);
+                                let authors = format_authors(&m.authors);
+
+                                ui.horizontal(|ui| {
+                                    let url = mod_page_url(m);
+                                    ui.hyperlink_to(RichText::new(&m.name).strong(), url);
+                                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                        if ui
+                                            .add(
+                                                egui::Button::new(self.text_mods_install_button())
+                                                    .fill(colors.accent)
+                                                    .stroke(Stroke::new(1.0, colors.accent_glow))
+                                                    .min_size(Vec2::new(96.0, 30.0)),
+                                            )
+                                            .clicked()
+                                        {
+                                            self.trigger_action(UserAction::DownloadMod {
+                                                mod_id: m.id,
+                                            });
+                                        }
+                                    });
+                                });
+
+                                ui.add_space(4.0);
+                                ui.horizontal_wrapped(|ui| {
+                                    for category in m.categories.iter().take(2) {
+                                        chip_frame(colors.accent_soft).show(ui, |ui| {
+                                            ui.label(
+                                                RichText::new(category.name.clone())
+                                                    .color(colors.accent_glow)
+                                                    .small(),
+                                            );
+                                        });
+                                    }
+                                    chip_frame(colors.info).show(ui, |ui| {
+                                        ui.label(
+                                            RichText::new(self.text_mods_downloads(&downloads))
+                                                .color(colors.text_primary)
+                                                .small(),
+                                        );
+                                    });
+                                    if let Some(updated) = updated {
+                                        meta_chip_frame(colors).show(ui, |ui| {
+                                            ui.label(
+                                                RichText::new(self.text_mods_updated(&updated))
+                                                    .color(colors.text_muted)
+                                                    .small(),
+                                            );
+                                        });
+                                    }
+                                    if let Some(authors) = authors {
+                                        meta_chip_frame(colors).show(ui, |ui| {
+                                            ui.label(
+                                                RichText::new(self.text_mods_by(&authors))
+                                                    .color(colors.text_muted)
+                                                    .small(),
+                                            );
+                                        });
+                                    }
+                                });
+
+                                ui.add_space(6.0);
+                                ui.label(RichText::new(&m.summary).color(colors.text_muted));
+                            });
+                        });
+                    }
+                });
+        });
+    }
+
+    fn render_controls(&mut self, ui: &mut egui::Ui, colors: &ThemePalette) {
+        section_frame(colors).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.heading(self.text_controls_heading());
+                ui.label(
+                    RichText::new(self.text_controls_subheading())
+                        .color(colors.text_muted)
+                        .small(),
+                );
+            });
+            ui.add_space(10.0);
+
+            ui.vertical(|ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(self.text_player_name_label()).color(colors.text_muted));
+                    let name_placeholder = self.text_player_name_placeholder();
+                    let resp = ui.add(
+                        egui::TextEdit::singleline(&mut self.player_name)
+                            .hint_text(name_placeholder)
+                            .desired_width(180.0),
+                    );
+                    if resp.changed() {
+                        self.player_name_error = None;
+                    }
+                    let save_clicked = ui
+                        .add(
+                            egui::Button::new(self.text_player_name_save_button())
+                                .fill(colors.accent_soft)
+                                .stroke(Stroke::new(1.0, colors.accent))
+                                .min_size(Vec2::new(72.0, 28.0)),
+                        )
+                        .clicked();
+                    let enter_pressed =
+                        resp.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    if save_clicked || enter_pressed {
+                        self.commit_player_name();
+                    }
+                });
+                if let Some(err) = &self.player_name_error {
+                    ui.colored_label(colors.danger, self.text_player_name_error(err));
+                }
+                ui.add_space(6.0);
+
+                let auth_label = self.text_auth_mode_value(self.auth_mode);
+                let auth_offline_label = self.text_auth_mode_value(AuthMode::Offline);
+                let auth_online_label = self.text_auth_mode_value(AuthMode::Online);
+
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(self.text_auth_mode_label()).color(colors.text_muted));
+                    egui::ComboBox::from_id_source("auth_mode_combo")
+                        .selected_text(auth_label)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut self.auth_mode,
+                                AuthMode::Offline,
+                                auth_offline_label,
+                            );
+                            ui.selectable_value(
+                                &mut self.auth_mode,
+                                AuthMode::Online,
+                                auth_online_label,
+                            );
+                        });
+                });
+                ui.add_space(8.0);
+
+                ui.horizontal_wrapped(|ui| {
+                    let play_enabled = matches!(self.state, AppState::ReadyToPlay { .. });
+                    let play_btn = egui::Button::new(self.text_play_button())
+                        .fill(colors.accent)
+                        .stroke(Stroke::new(1.5, colors.accent_glow))
+                        .min_size(Vec2::new(120.0, 34.0));
+                    if ui.add_enabled(play_enabled, play_btn).clicked() {
+                        let player_name = self.commit_player_name();
+                        self.trigger_action(UserAction::ClickPlay {
+                            player_name,
+                            auth_mode: self.auth_mode,
+                        });
+                    }
+
+                    let can_check = !matches!(self.state, AppState::Downloading { .. });
+                    let check_btn = egui::Button::new(self.text_check_updates_button())
+                        .fill(colors.surface_elev)
+                        .stroke(Stroke::new(1.0, colors.border_strong))
+                        .min_size(Vec2::new(150.0, 34.0));
+                    if ui.add_enabled(can_check, check_btn).clicked() {
+                        self.trigger_action(UserAction::CheckForUpdates);
+                    }
+
+                    if matches!(self.state, AppState::Downloading { .. })
+                        && ui
+                            .add(
+                                egui::Button::new(self.text_cancel_button())
+                                    .fill(tint(colors.danger, 40))
+                                    .stroke(Stroke::new(1.0, colors.danger))
+                                    .min_size(Vec2::new(110.0, 32.0)),
+                            )
+                            .clicked()
+                    {
+                        self.trigger_action(UserAction::ClickCancelDownload);
+                    }
+                });
+
+                ui.add_space(6.0);
+                let is_busy = matches!(
+                    self.state,
+                    AppState::Downloading { .. }
+                        | AppState::CheckingForUpdates
+                        | AppState::DiagnosticsRunning
+                        | AppState::Playing
+                        | AppState::Uninstalling
+                        | AppState::Initialising
+                );
+                let uninstall_clicked = ui
+                    .add_enabled(
+                        !is_busy,
+                        egui::Button::new(self.text_uninstall_button())
+                            .fill(tint(colors.danger, 40))
+                            .stroke(Stroke::new(1.0, colors.danger))
+                            .min_size(Vec2::new(150.0, 32.0)),
+                    )
+                    .clicked();
+                if uninstall_clicked {
+                    self.show_uninstall_confirm = true;
+                }
+
+                ui.add_space(6.0);
+                if ui
+                    .add(
+                        egui::Button::new(self.text_run_diagnostics_button())
+                            .fill(colors.accent_soft)
+                            .stroke(Stroke::new(1.0, colors.accent))
+                            .min_size(Vec2::new(150.0, 32.0)),
+                    )
+                    .clicked()
+                {
+                    self.trigger_action(UserAction::RunDiagnostics);
+                }
+            });
+        });
+
+        if self.show_uninstall_confirm {
+            egui::Window::new(self.text_uninstall_confirm_title())
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
+                .show(ui.ctx(), |ui| {
+                    ui.label(self.text_uninstall_confirm_body());
+                    ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add(
+                                egui::Button::new(self.text_uninstall_confirm_yes())
+                                    .fill(tint(colors.danger, 60))
+                                    .stroke(Stroke::new(1.0, colors.danger)),
+                            )
+                            .clicked()
+                        {
+                            self.show_uninstall_confirm = false;
+                            self.trigger_action(UserAction::UninstallGame);
+                        }
+                        if ui
+                            .add(
+                                egui::Button::new(self.text_uninstall_confirm_no())
+                                    .fill(colors.surface_elev)
+                                    .stroke(Stroke::new(1.0, colors.border_strong)),
+                            )
+                            .clicked()
+                        {
+                            self.show_uninstall_confirm = false;
+                        }
+                    });
+                });
+        }
+    }
+
+    fn render_diagnostics(&self, ui: &mut egui::Ui, colors: &ThemePalette) {
+        if let Some(diag) = &self.diagnostics {
+            section_frame(colors).show(ui, |ui| {
+                ui.heading(self.text_diagnostics_heading());
+                ui.add_space(6.0);
+                egui::CollapsingHeader::new(self.text_view_report())
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        egui::ScrollArea::vertical()
+                            .max_height(320.0)
+                            .show(ui, |ui| {
+                                ui.monospace(diag);
+                            });
+                    });
+            });
+        }
+    }
+
+    fn text_heading(&self) -> &'static str {
+        match self.language {
+            Language::English => "HRS Launcher",
+            Language::Ukrainian => "Лаунчер HRS",
+        }
+    }
+
+    fn text_tagline(&self) -> &'static str {
+        match self.language {
+            Language::English => "Community launcher for Hytale",
+            Language::Ukrainian => "Спільнотний лаунчер для Hytale",
+        }
+    }
+
+    fn text_status_label(&self) -> &'static str {
+        match self.language {
+            Language::English => "Status",
+            Language::Ukrainian => "Стан",
+        }
+    }
+
+    fn text_status_ready(&self) -> &'static str {
+        match self.language {
+            Language::English => "Ready",
+            Language::Ukrainian => "Готово",
+        }
+    }
+
+    fn text_status_running(&self) -> &'static str {
+        match self.language {
+            Language::English => "Running",
+            Language::Ukrainian => "Запущено",
+        }
+    }
+
+    fn text_status_attention(&self) -> &'static str {
+        match self.language {
+            Language::English => "Attention",
+            Language::Ukrainian => "Увага",
+        }
+    }
+
+    fn text_status_downloading(&self) -> &'static str {
+        match self.language {
+            Language::English => "Downloading",
+            Language::Ukrainian => "Завантаження",
+        }
+    }
+
+    fn text_status_uninstalling(&self) -> &'static str {
+        match self.language {
+            Language::English => "Uninstalling",
+            Language::Ukrainian => "Видалення",
+        }
+    }
+
+    fn text_status_diagnostics(&self) -> &'static str {
+        match self.language {
+            Language::English => "Diagnostics",
+            Language::Ukrainian => "Діагностика",
+        }
+    }
+
+    fn text_status_working(&self) -> &'static str {
+        match self.language {
+            Language::English => "Working",
+            Language::Ukrainian => "Виконується",
+        }
+    }
+
+    fn text_diagnostics_running(&self) -> &'static str {
+        match self.language {
+            Language::English => "Running diagnostics...",
+            Language::Ukrainian => "Виконується діагностика...",
+        }
+    }
+
+    fn text_diagnostics_completed(&self) -> &'static str {
+        match self.language {
+            Language::English => "Diagnostics completed.",
+            Language::Ukrainian => "Діагностику завершено.",
+        }
+    }
+
+    fn text_news_subheading(&self) -> &'static str {
+        match self.language {
+            Language::English => "What's happening in Hytale",
+            Language::Ukrainian => "Що нового в Hytale",
+        }
+    }
+
+    fn text_news_updating(&self) -> &'static str {
+        match self.language {
+            Language::English => "Updating...",
+            Language::Ukrainian => "Оновлення...",
+        }
+    }
+
+    fn text_news_fetch_failed(&self, err: &str) -> String {
+        match self.language {
+            Language::English => format!("News fetch failed: {err}"),
+            Language::Ukrainian => format!("Не вдалося отримати новини: {err}"),
+        }
+    }
+
+    fn text_news_preview_fallback(&self) -> &'static str {
+        match self.language {
+            Language::English => NEWS_PREVIEW_FALLBACK_EN,
+            Language::Ukrainian => "Детальніше на hytale.com.",
+        }
+    }
+
+    fn text_mods_heading(&self) -> &'static str {
+        match self.language {
+            Language::English => "Mods",
+            Language::Ukrainian => "Моди",
+        }
+    }
+
+    fn text_mods_searching(&self) -> &'static str {
+        match self.language {
+            Language::English => "Searching...",
+            Language::Ukrainian => "Пошук...",
+        }
+    }
+
+    fn text_mods_results_count(&self, count: usize) -> String {
+        match self.language {
+            Language::English => format!("{count} results"),
+            Language::Ukrainian => format!("Знайдено {count}"),
+        }
+    }
+
+    fn text_mods_search_hint(&self) -> &'static str {
+        match self.language {
+            Language::English => "Search by name or keyword...",
+            Language::Ukrainian => "Пошук за назвою або ключовим словом...",
+        }
+    }
+
+    fn text_mods_search_button(&self) -> &'static str {
+        match self.language {
+            Language::English => "Search",
+            Language::Ukrainian => "Пошук",
+        }
+    }
+
+    fn text_mods_clear_button(&self) -> &'static str {
+        match self.language {
+            Language::English => "Clear",
+            Language::Ukrainian => "Очистити",
+        }
+    }
+
+    fn text_mods_sort_label(&self) -> &'static str {
+        match self.language {
+            Language::English => "Sort by",
+            Language::Ukrainian => "Сортувати за",
+        }
+    }
+
+    fn text_mods_category_label(&self) -> &'static str {
+        match self.language {
+            Language::English => "Category",
+            Language::Ukrainian => "Категорія",
+        }
+    }
+
+    fn text_mods_all_categories(&self) -> &'static str {
+        match self.language {
+            Language::English => "All categories",
+            Language::Ukrainian => "Усі категорії",
+        }
+    }
+
+    fn text_mods_showing(&self, visible: usize, total: usize) -> String {
+        match self.language {
+            Language::English => format!("Showing {visible} of {total} mods"),
+            Language::Ukrainian => format!("Показано {visible} з {total}"),
+        }
+    }
+
+    fn text_mods_search_failed(&self, err: &str) -> String {
+        match self.language {
+            Language::English => format!("Search failed: {err}"),
+            Language::Ukrainian => format!("Помилка пошуку: {err}"),
+        }
+    }
+
+    fn text_mods_none_loaded(&self) -> &'static str {
+        match self.language {
+            Language::English => "No mods loaded. Try searching by name.",
+            Language::Ukrainian => "Моди не завантажено. Спробуйте пошук за назвою.",
+        }
+    }
+
+    fn text_mods_no_match(&self) -> &'static str {
+        match self.language {
+            Language::English => "No mods match the current filters.",
+            Language::Ukrainian => "Немає модів, що відповідають поточним фільтрам.",
+        }
+    }
+
+    fn text_mods_install_button(&self) -> &'static str {
+        match self.language {
+            Language::English => "Install",
+            Language::Ukrainian => "Встановити",
+        }
+    }
+
+    fn text_mods_downloads(&self, downloads: &str) -> String {
+        match self.language {
+            Language::English => format!("Downloads {downloads}"),
+            Language::Ukrainian => format!("Завантажень {downloads}"),
+        }
+    }
+
+    fn text_mods_updated(&self, updated: &str) -> String {
+        match self.language {
+            Language::English => format!("Updated {updated}"),
+            Language::Ukrainian => format!("Оновлено {updated}"),
+        }
+    }
+
+    fn text_mods_by(&self, authors: &str) -> String {
+        match self.language {
+            Language::English => format!("By {authors}"),
+            Language::Ukrainian => format!("Від {authors}"),
+        }
+    }
+
+    fn text_controls_heading(&self) -> &'static str {
+        match self.language {
+            Language::English => "Launcher controls",
+            Language::Ukrainian => "Керування лаунчером",
+        }
+    }
+
+    fn text_controls_subheading(&self) -> &'static str {
+        match self.language {
+            Language::English => "Manage updates & play",
+            Language::Ukrainian => "Керування оновленнями та запуском",
+        }
+    }
+
+    fn text_player_name_label(&self) -> &'static str {
+        match self.language {
+            Language::English => "Player name",
+            Language::Ukrainian => "Ім'я гравця",
+        }
+    }
+
+    fn text_player_name_placeholder(&self) -> &'static str {
+        match self.language {
+            Language::English => DEFAULT_PLAYER_NAME,
+            Language::Ukrainian => "Гравець",
+        }
+    }
+
+    fn text_player_name_save_button(&self) -> &'static str {
+        match self.language {
+            Language::English => "Save",
+            Language::Ukrainian => "Зберегти",
+        }
+    }
+
+    fn text_player_name_error(&self, err: &str) -> String {
+        match self.language {
+            Language::English => format!("Player name: {err}"),
+            Language::Ukrainian => format!("Ім'я гравця: {err}"),
+        }
+    }
+
+    fn text_auth_mode_label(&self) -> &'static str {
+        match self.language {
+            Language::English => "Auth mode",
+            Language::Ukrainian => "Режим авторизації",
+        }
+    }
+
+    fn text_auth_mode_value(&self, mode: AuthMode) -> &'static str {
+        match (mode, self.language) {
+            (AuthMode::Offline, Language::English) => "Offline",
+            (AuthMode::Offline, Language::Ukrainian) => "Офлайн",
+            (AuthMode::Online, Language::English) => "Online",
+            (AuthMode::Online, Language::Ukrainian) => "Онлайн",
+        }
+    }
+
+    fn text_run_diagnostics_button(&self) -> &'static str {
+        match self.language {
+            Language::English => "Run diagnostics",
+            Language::Ukrainian => "Запустити діагностику",
+        }
+    }
+
+    fn text_diagnostics_heading(&self) -> &'static str {
+        match self.language {
+            Language::English => "Diagnostics",
+            Language::Ukrainian => "Діагностика",
+        }
+    }
+
+    fn text_view_report(&self) -> &'static str {
+        match self.language {
+            Language::English => "View report",
+            Language::Ukrainian => "Переглянути звіт",
+        }
+    }
+
+    fn text_checking(&self) -> &'static str {
+        match self.language {
+            Language::English => "Checking for updates...",
+            Language::Ukrainian => "Перевірка оновлень...",
+        }
+    }
+
+    fn text_downloading(&self, file: &str) -> String {
+        match self.language {
+            Language::English => format!("Downloading {file}"),
+            Language::Ukrainian => format!("Завантаження {file}"),
+        }
+    }
+
+    fn text_uninstalling(&self) -> &'static str {
+        match self.language {
+            Language::English => "Removing game files...",
+            Language::Ukrainian => "Видаляємо файли гри...",
+        }
+    }
+
+    fn text_progress(&self, progress: f32, speed: &str) -> String {
+        match self.language {
+            Language::English => format!("{progress:.0}% ({speed})"),
+            Language::Ukrainian => format!("{progress:.0}% ({speed})"),
+        }
+    }
+
+    fn text_ready(&self, version: &str) -> String {
+        match self.language {
+            Language::English => format!("Ready to play version {version}"),
+            Language::Ukrainian => format!("Готово до запуску версії {version}"),
+        }
+    }
+
+    fn text_playing(&self) -> &'static str {
+        match self.language {
+            Language::English => "Launching Hytale...",
+            Language::Ukrainian => "Запуск Hytale...",
+        }
+    }
+
+    fn text_error(&self, msg: &str) -> String {
+        match self.language {
+            Language::English => format!("Error: {msg}"),
+            Language::Ukrainian => format!("Помилка: {msg}"),
+        }
+    }
+
+    fn text_initialising(&self) -> &'static str {
+        match self.language {
+            Language::English => "Initialising launcher...",
+            Language::Ukrainian => "Ініціалізація лаунчера...",
+        }
+    }
+
+    fn text_idle(&self) -> &'static str {
+        match self.language {
+            Language::English => "Idle",
+            Language::Ukrainian => "Очікування",
+        }
+    }
+
+    fn text_play_button(&self) -> &'static str {
+        match self.language {
+            Language::English => "Play",
+            Language::Ukrainian => "Грати",
+        }
+    }
+
+    fn text_check_updates_button(&self) -> &'static str {
+        match self.language {
+            Language::English => "Check for updates",
+            Language::Ukrainian => "Перевірити оновлення",
+        }
+    }
+
+    fn text_cancel_button(&self) -> &'static str {
+        match self.language {
+            Language::English => "Cancel",
+            Language::Ukrainian => "Скасувати",
+        }
+    }
+
+    fn text_uninstall_button(&self) -> &'static str {
+        match self.language {
+            Language::English => "Uninstall game",
+            Language::Ukrainian => "Видалити гру",
+        }
+    }
+
+    fn text_uninstall_confirm_title(&self) -> &'static str {
+        match self.language {
+            Language::English => "Confirm uninstall",
+            Language::Ukrainian => "Підтвердьте видалення",
+        }
+    }
+
+    fn text_uninstall_confirm_body(&self) -> &'static str {
+        match self.language {
+            Language::English => "This will remove the game files and bundled JRE. Are you sure?",
+            Language::Ukrainian => "Це видалить файли гри та вбудовану JRE. Ви впевнені?",
+        }
+    }
+
+    fn text_uninstall_confirm_yes(&self) -> &'static str {
+        match self.language {
+            Language::English => "Yes, uninstall",
+            Language::Ukrainian => "Так, видалити",
+        }
+    }
+
+    fn text_uninstall_confirm_no(&self) -> &'static str {
+        match self.language {
+            Language::English => "Cancel",
+            Language::Ukrainian => "Скасувати",
+        }
+    }
+
+    fn text_news_heading(&self) -> &'static str {
+        match self.language {
+            Language::English => "News",
+            Language::Ukrainian => "Новини",
+        }
+    }
+
+    fn text_no_news(&self) -> &'static str {
+        match self.language {
+            Language::English => "No news available.",
+            Language::Ukrainian => "Наразі немає новин.",
+        }
+    }
+}
+
+impl eframe::App for LauncherApp {
+    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+        self.sync_state();
+        self.sync_mod_updates();
+        self.sync_news_updates();
+        let colors = self.colors();
+        apply_theme(ctx, &colors);
+
+        egui::TopBottomPanel::top("top_bar")
+            .frame(
+                Frame::none()
+                    .fill(colors.panel)
+                    .stroke(Stroke::new(1.0, colors.border))
+                    .inner_margin(Margin::symmetric(16.0, 12.0)),
+            )
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.vertical(|ui| {
+                        ui.heading(RichText::new(self.text_heading()).color(colors.accent));
+                        ui.label(RichText::new(self.text_tagline()).color(colors.text_muted));
+                    });
+                    ui.allocate_ui_with_layout(
+                        ui.available_size_before_wrap(),
+                        Layout::right_to_left(Align::Center),
+                        |ui| {
+                            let control_height = 34.0;
+                            ui.scope(|ui| {
+                                ui.set_height(control_height);
+                                egui::ComboBox::from_id_source("theme_combo")
+                                    .selected_text(self.theme.label(self.language))
+                                    .show_ui(ui, |ui| {
+                                        ui.selectable_value(
+                                            &mut self.theme,
+                                            Theme::Dark,
+                                            Theme::Dark.label(self.language),
+                                        );
+                                        ui.selectable_value(
+                                            &mut self.theme,
+                                            Theme::Light,
+                                            Theme::Light.label(self.language),
+                                        );
+                                    });
+                            });
+                            ui.scope(|ui| {
+                                ui.set_height(control_height);
+                                egui::ComboBox::from_id_source("language_combo")
+                                    .selected_text(self.language.display_name())
+                                    .show_ui(ui, |ui| {
+                                        ui.selectable_value(
+                                            &mut self.language,
+                                            Language::English,
+                                            Language::English.display_name(),
+                                        );
+                                        ui.selectable_value(
+                                            &mut self.language,
+                                            Language::Ukrainian,
+                                            Language::Ukrainian.display_name(),
+                                        );
+                                    });
+                            });
+                        },
+                    );
+                });
+            });
+
+        egui::CentralPanel::default()
+            .frame(
+                Frame::none()
+                    .fill(colors.bg)
+                    .inner_margin(Margin::symmetric(14.0, 12.0)),
+            )
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    let full_width = ui.available_width();
+                    let gutter = 18.0;
+                    if full_width <= gutter {
+                        self.render_discord_button(ui, &colors);
+                        ui.add_space(12.0);
+                        self.render_status(ui, &colors);
+                        ui.add_space(12.0);
+                        self.render_controls(ui, &colors);
+                        ui.add_space(12.0);
+                        self.render_mods(ui, &colors);
+                        ui.add_space(12.0);
+                        self.render_news(ui, &colors);
+                        self.render_diagnostics(ui, &colors);
+                        return;
+                    }
+
+                    let left_width = (full_width - gutter) * 0.42;
+                    let right_width = full_width - gutter - left_width;
+                    ui.horizontal_top(|ui| {
+                        ui.allocate_ui_with_layout(
+                            Vec2::new(left_width, 0.0),
+                            Layout::top_down(Align::LEFT),
+                            |ui| {
+                                self.render_discord_button(ui, &colors);
+                                ui.add_space(12.0);
+                                self.render_status(ui, &colors);
+                                ui.add_space(12.0);
+                                self.render_controls(ui, &colors);
+                                ui.add_space(12.0);
+                                self.render_diagnostics(ui, &colors);
+                            },
+                        );
+                        ui.add_space(gutter);
+                        ui.allocate_ui_with_layout(
+                            Vec2::new(right_width, 0.0),
+                            Layout::top_down(Align::LEFT),
+                            |ui| {
+                                self.render_mods(ui, &colors);
+                            },
+                        );
+                    });
+                    ui.add_space(14.0);
+                    self.render_news(ui, &colors);
+                });
+            });
+    }
+}
