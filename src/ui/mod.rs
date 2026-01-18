@@ -673,7 +673,7 @@ impl LauncherApp {
         let bootstrap_rt = runtime.clone();
         bootstrap_rt.spawn(async move {
             let mut locked = bootstrap_engine.lock().await;
-            locked.bootstrap(&bootstrap_tx).await;
+            locked.load_local_state(&bootstrap_tx).await;
         });
 
         let mut app = Self {
@@ -1293,6 +1293,10 @@ impl LauncherApp {
 
                 ui.horizontal_wrapped(|ui| {
                     let play_enabled = matches!(self.state, AppState::ReadyToPlay { .. });
+                    let is_fetching = matches!(
+                        self.state,
+                        AppState::Downloading { .. } | AppState::CheckingForUpdates
+                    );
                     let play_btn = egui::Button::new(self.text_play_button())
                         .fill(colors.accent)
                         .stroke(Stroke::new(1.5, colors.accent_glow))
@@ -1305,7 +1309,16 @@ impl LauncherApp {
                         });
                     }
 
-                    let can_check = !matches!(self.state, AppState::Downloading { .. });
+                    let can_download = !is_fetching;
+                    let download_btn = egui::Button::new(self.text_download_button())
+                        .fill(colors.accent_soft)
+                        .stroke(Stroke::new(1.0, colors.accent))
+                        .min_size(Vec2::new(150.0, 34.0));
+                    if ui.add_enabled(can_download, download_btn).clicked() {
+                        self.trigger_action(UserAction::DownloadGame);
+                    }
+
+                    let can_check = !is_fetching;
                     let check_btn = egui::Button::new(self.text_check_updates_button())
                         .fill(colors.surface_elev)
                         .stroke(Stroke::new(1.0, colors.border_strong))
@@ -1787,8 +1800,10 @@ impl LauncherApp {
 
     fn text_idle(&self) -> &'static str {
         match self.language {
-            Language::English => "Idle",
-            Language::Ukrainian => "Очікування",
+            Language::English => "Idle. Click Download Game to install or update.",
+            Language::Ukrainian => {
+                "Очікування. Натисніть Завантажити гру, щоб встановити або оновити."
+            }
         }
     }
 
@@ -1796,6 +1811,13 @@ impl LauncherApp {
         match self.language {
             Language::English => "Play",
             Language::Ukrainian => "Грати",
+        }
+    }
+
+    fn text_download_button(&self) -> &'static str {
+        match self.language {
+            Language::English => "Download Game",
+            Language::Ukrainian => "Завантажити гру",
         }
     }
 

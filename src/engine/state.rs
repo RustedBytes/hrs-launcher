@@ -60,4 +60,5 @@ pub enum UserAction {
     },
     RunDiagnostics,
     UninstallGame,
+    DownloadGame,
 }

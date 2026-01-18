@@ -54,6 +54,19 @@ impl LauncherEngine {
         self.mods.clone()
     }
 
+    pub async fn load_local_state(&mut self, updates: &mpsc::UnboundedSender<AppState>) {
+        info!("load_local_state: checking cached install");
+        let local_state = self.storage.read_local_state().await;
+        let state = match local_state {
+            Some(local) if self.client_path().exists() => AppState::ReadyToPlay {
+                version: local.version,
+            },
+            _ => AppState::Idle,
+        };
+        self.state = state.clone();
+        let _ = updates.send(state);
+    }
+
     pub async fn bootstrap(&mut self, updates: &mpsc::UnboundedSender<AppState>) {
         self.reset_cancel_flag();
         updates.send(AppState::CheckingForUpdates).ok();
@@ -102,6 +115,10 @@ impl LauncherEngine {
         match action {
             UserAction::CheckForUpdates => {
                 info!("action: CheckForUpdates");
+                self.bootstrap(updates).await;
+            }
+            UserAction::DownloadGame => {
+                info!("action: DownloadGame");
                 self.bootstrap(updates).await;
             }
             UserAction::ClickPlay {
