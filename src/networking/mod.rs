@@ -2,6 +2,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
+use log::warn;
 use reqwest::Client;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
@@ -21,12 +22,14 @@ pub struct NetworkClient {
 
 impl NetworkClient {
     pub fn new() -> Self {
-        Self {
-            client: Client::builder()
-                .timeout(Duration::from_secs(30))
-                .build()
-                .expect("reqwest client"),
-        }
+        let client = Client::builder()
+            .timeout(Duration::from_secs(30))
+            .build()
+            .unwrap_or_else(|err| {
+                warn!("network client: falling back to default HTTP client configuration ({err})");
+                Client::new()
+            });
+        Self { client }
     }
 
     /// Find the latest available patch on the Hytale patch server and return a manifest for it.

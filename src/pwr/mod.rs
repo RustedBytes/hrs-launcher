@@ -63,10 +63,17 @@ pub async fn find_latest_version_with_details(version_type: &str) -> VersionChec
         5
     };
 
-    let client = Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-        .expect("reqwest client for version probe");
+    let client = match Client::builder().timeout(Duration::from_secs(10)).build() {
+        Ok(client) => client,
+        Err(err) => {
+            let message = format!("failed to build HTTP client: {err}");
+            warn!("version probe: {message}");
+            return VersionCheckResult {
+                error: Some(message),
+                ..Default::default()
+            };
+        }
+    };
 
     let mut checks = Vec::new();
     for version in 1..=start_version {

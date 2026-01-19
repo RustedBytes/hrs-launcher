@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use futures_util::StreamExt;
+use log::warn;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
@@ -124,7 +125,13 @@ impl ModService {
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
-            .expect("reqwest client for mods");
+            .unwrap_or_else(|err| {
+                warn!(
+                    "mods: failed to build HTTP client ({}); using default configuration",
+                    err
+                );
+                Client::new()
+            });
         Self { client, mods_dir }
     }
 

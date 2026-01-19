@@ -67,7 +67,13 @@ impl Diagnostics {
             .timeout(Duration::from_secs(10))
             .user_agent("HytaleLauncherDiagnostics/0.1")
             .build()
-            .expect("reqwest client for diagnostics");
+            .unwrap_or_else(|err| {
+                warn!(
+                    "diagnostics: failed to build HTTP client ({}); falling back to defaults",
+                    err
+                );
+                Client::new()
+            });
         Self {
             client,
             launcher_version: launcher_version.into(),

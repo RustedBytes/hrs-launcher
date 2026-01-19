@@ -7,9 +7,10 @@ use std::{fs, path::Path};
 use eframe::egui::{
     self, Align, Color32, Frame, Layout, Margin, RichText, Rounding, Stroke, Vec2, epaint::Shadow,
 };
+use log::{error, warn};
 use scraper::{Html, Selector};
 use serde::Deserialize;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Builder, Runtime};
 use tokio::sync::{Mutex, mpsc};
 
 use crate::engine::LauncherEngine;
@@ -529,6 +530,28 @@ async fn fetch_news_from_web() -> Result<Vec<NewsItem>, String> {
     Ok(items)
 }
 
+fn build_runtime() -> Arc<Runtime> {
+    match Runtime::new() {
+        Ok(rt) => Arc::new(rt),
+        Err(err) => {
+            warn!(
+                "ui: failed to create multithreaded runtime ({}); trying single-threaded runtime",
+                err
+            );
+            match Builder::new_current_thread().enable_all().build() {
+                Ok(rt) => Arc::new(rt),
+                Err(fallback_err) => {
+                    error!(
+                        "ui: failed to create any Tokio runtime ({}); terminating launcher",
+                        fallback_err
+                    );
+                    std::process::exit(1);
+                }
+            }
+        }
+    }
+}
+
 pub struct LauncherApp {
     runtime: Arc<Runtime>,
     engine: Arc<Mutex<LauncherEngine>>,
@@ -654,8 +677,7 @@ fn apply_theme(ctx: &egui::Context, colors: &ThemePalette) {
 
 impl LauncherApp {
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        let runtime =
-            Arc::new(Runtime::new().expect("tokio runtime should be available for launcher"));
+        let runtime = build_runtime();
 
         let cancel_flag = Arc::new(AtomicBool::new(false));
         let engine = LauncherEngine::new(
