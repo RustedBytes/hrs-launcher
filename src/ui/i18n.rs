@@ -733,16 +733,31 @@ impl I18n {
 
     pub fn mods_drop_hint(self) -> &'static str {
         self.pick(
-            "Drag & drop mod files to install.",
-            "Перетягніть файли модів, щоб встановити їх.",
-            "Arrastra y suelta archivos de mods para instalarlos.",
-            "Glissez-déposez les fichiers de mods pour les installer.",
-            "Ziehe Mod-Dateien hierher, um sie zu installieren.",
-            "Arraste e solte arquivos de mods para instalá-los.",
-            "拖放模组文件即可安装。",
-            "मोड फ़ाइलों को खींचें और छोड़ें, इंस्टॉल हो जाएंगी।",
-            "Перетащите файлы модов, чтобы установить их.",
-            "Mod dosyalarını sürükleyip bırakın ve kurun.",
+            "Select or drag & drop mod files to install.",
+            "Виберіть або перетягніть файли модів, щоб встановити їх.",
+            "Selecciona o arrastra y suelta archivos de mods para instalarlos.",
+            "Sélectionnez ou glissez-déposez des fichiers de mods pour les installer.",
+            "Wähle oder ziehe Mod-Dateien hierher, um sie zu installieren.",
+            "Selecione ou arraste e solte arquivos de mods para instalá-los.",
+            "选择或拖放模组文件即可安装。",
+            "मोड फ़ाइलें चुनें या खींचकर छोड़ें, इंस्टॉल हो जाएंगी।",
+            "Выберите или перетащите файлы модов, чтобы установить их.",
+            "Mod dosyalarını seçin ya da sürükleyip bırakın ve yükleyin.",
+        )
+    }
+
+    pub fn mods_select_files(self) -> &'static str {
+        self.pick(
+            "Select mod files",
+            "Обрати файли модів",
+            "Seleccionar archivos de mods",
+            "Choisir des fichiers de mods",
+            "Mod-Dateien auswählen",
+            "Selecionar arquivos de mods",
+            "选择模组文件",
+            "मोड फ़ाइलें चुनें",
+            "Выбрать файлы модов",
+            "Mod dosyalarını seç",
         )
     }
 

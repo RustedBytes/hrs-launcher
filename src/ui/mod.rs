@@ -12,6 +12,7 @@ use eframe::egui::{
     RichText, Rounding, Stroke, Vec2, epaint::Shadow,
 };
 use log::{error, warn};
+use rfd::FileDialog;
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use tokio::runtime::{Builder, Runtime};
@@ -1573,6 +1574,15 @@ impl LauncherApp {
     fn render_mods(&mut self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
         section_frame(colors).show(ui, |ui| {
             ui.set_min_height(676.0);
+            let game_installed = self.game_installed();
+            let mod_actions_locked = matches!(
+                self.state,
+                AppState::Downloading { .. }
+                    | AppState::CheckingForUpdates
+                    | AppState::Uninstalling
+                    | AppState::Playing
+            );
+            let can_install_mods = game_installed && !mod_actions_locked && !self.installed_loading;
             ui.horizontal(|ui| {
                 ui.heading(i18n.mods_heading());
                 if self.mod_loading {
@@ -1584,17 +1594,17 @@ impl LauncherApp {
                             .color(colors.text_muted),
                     );
                 }
+                ui.add_space(8.0);
+                let select_label = i18n.mods_select_files();
+                let select_btn = egui::Button::new(select_label)
+                    .fill(colors.accent)
+                    .stroke(Stroke::new(1.0, colors.accent_glow))
+                    .min_size(Vec2::new(142.0, 30.0));
+                if ui.add_enabled(can_install_mods, select_btn).clicked() {
+                    self.open_mod_file_picker(can_install_mods);
+                }
             });
 
-            let game_installed = self.game_installed();
-            let mod_actions_locked = matches!(
-                self.state,
-                AppState::Downloading { .. }
-                    | AppState::CheckingForUpdates
-                    | AppState::Uninstalling
-                    | AppState::Playing
-            );
-            let can_install_mods = game_installed && !mod_actions_locked && !self.installed_loading;
             if !game_installed {
                 ui.colored_label(colors.warning, i18n.mods_requires_game());
                 ui.add_space(4.0);
@@ -1938,6 +1948,28 @@ impl LauncherApp {
         }
 
         self.start_import_mod_files(dropped_paths);
+    }
+
+    fn open_mod_file_picker(&mut self, can_install_mods: bool) {
+        if !can_install_mods {
+            self.installed_error = Some(self.i18n().mods_drop_disabled().to_string());
+            return;
+        }
+
+        let picked = FileDialog::new()
+            .set_title(self.i18n().mods_select_files())
+            .add_filter("Zip archives", &["zip"])
+            .pick_files();
+
+        let Some(paths) = picked else {
+            return;
+        };
+
+        if paths.is_empty() {
+            return;
+        }
+
+        self.start_import_mod_files(paths);
     }
 
     fn render_installed_mods(

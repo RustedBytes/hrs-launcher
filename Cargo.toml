@@ -25,6 +25,7 @@ walkdir = "2"
 log = "0.4.29"
 env_logger = "0.11"
 sysinfo = "0.29"
+rfd = "0.17.2"
 
 [profile.release]
 # Keep builds small and fast to launch.
