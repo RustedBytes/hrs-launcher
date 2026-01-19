@@ -188,6 +188,25 @@ fn meta_chip_frame(colors: &ThemePalette) -> Frame {
         .inner_margin(Margin::symmetric(8.0, 3.0))
 }
 
+fn primary_badge_frame(colors: &ThemePalette) -> Frame {
+    Frame::none()
+        .fill(colors.accent_soft)
+        .stroke(Stroke::new(1.0, colors.accent))
+        .rounding(Rounding::same(999.0))
+        .inner_margin(Margin::symmetric(10.0, 4.0))
+}
+
+fn primary_cta_button(
+    label: impl Into<egui::WidgetText>,
+    colors: &ThemePalette,
+    min_width: f32,
+) -> egui::Button<'_> {
+    egui::Button::new(label)
+        .fill(colors.accent_soft)
+        .stroke(Stroke::new(1.0, colors.accent))
+        .min_size(Vec2::new(min_width, 34.0))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ModSort {
     Downloads,
@@ -791,6 +810,21 @@ fn apply_theme(ctx: &egui::Context, colors: &ThemePalette) {
         color: shadow_color,
     };
     visuals.popup_shadow = visuals.window_shadow;
+
+    if is_dark {
+        visuals.widgets.inactive.bg_fill = colors.surface_elev;
+        visuals.widgets.inactive.bg_stroke = Stroke::new(1.0, colors.border_strong);
+        visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, colors.text_muted);
+
+        visuals.widgets.hovered.bg_fill = colors.accent_soft;
+        visuals.widgets.hovered.bg_stroke = Stroke::new(1.3, colors.accent);
+        visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, colors.text_primary);
+
+        visuals.widgets.active.bg_fill = colors.accent;
+        visuals.widgets.active.bg_stroke = Stroke::new(1.5, colors.accent_glow);
+        visuals.widgets.active.fg_stroke = Stroke::new(1.0, colors.text_primary);
+    }
+
     ctx.set_visuals(visuals);
 
     let mut style = (*ctx.style()).clone();
@@ -1270,15 +1304,10 @@ impl LauncherApp {
     }
 
     fn render_discord_button(&self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
-        let control_height = 34.0;
-        let discord_btn = egui::Button::new(
-            RichText::new(i18n.discord_button_label())
-                .color(colors.text_primary)
-                .strong(),
-        )
-        .fill(colors.accent)
-        .stroke(Stroke::new(1.0, colors.accent_glow))
-        .min_size(Vec2::new(96.0, control_height));
+        let discord_label = RichText::new(i18n.discord_button_label())
+            .color(colors.text_primary)
+            .strong();
+        let discord_btn = primary_cta_button(discord_label, colors, 120.0);
         if ui.add(discord_btn).clicked() {
             ui.output_mut(|o| {
                 o.open_url = Some(egui::output::OpenUrl {
@@ -1303,9 +1332,19 @@ impl LauncherApp {
                     AppState::DiagnosticsRunning => (i18n.status_diagnostics(), colors.diagnostic),
                     _ => (i18n.status_working(), colors.text_faint),
                 };
-                badge_frame(status_badge.1).show(ui, |ui| {
-                    ui.label(RichText::new(status_badge.0).color(status_badge.1).strong());
-                });
+                if matches!(self.state, AppState::ReadyToPlay { .. }) {
+                    primary_badge_frame(colors).show(ui, |ui| {
+                        ui.label(
+                            RichText::new(status_badge.0)
+                                .color(colors.text_primary)
+                                .strong(),
+                        );
+                    });
+                } else {
+                    badge_frame(status_badge.1).show(ui, |ui| {
+                        ui.label(RichText::new(status_badge.0).color(status_badge.1).strong());
+                    });
+                }
             });
             ui.add_space(8.0);
 
@@ -1367,10 +1406,14 @@ impl LauncherApp {
                         | AppState::Uninstalling
                         | AppState::Initialising
                 );
-                let play_btn = egui::Button::new(i18n.play_button())
-                    .fill(colors.accent)
-                    .stroke(Stroke::new(1.5, colors.accent_glow))
-                    .min_size(Vec2::new(120.0, 34.0));
+                let play_label = RichText::new(i18n.play_button())
+                    .color(if play_enabled {
+                        colors.text_primary
+                    } else {
+                        colors.text_muted
+                    })
+                    .strong();
+                let play_btn = primary_cta_button(play_label, colors, 120.0);
                 if ui.add_enabled(play_enabled, play_btn).clicked() {
                     let player_name = self.commit_player_name();
                     self.trigger_action(UserAction::ClickPlay {
