@@ -124,33 +124,37 @@ fn tint(color: Color32, alpha: u8) -> Color32 {
     Color32::from_rgba_premultiplied(color.r(), color.g(), color.b(), alpha)
 }
 
+const LOCALE_LANGUAGE_CODES: [(&[&str], Language); 10] = [
+    (&["zh", "zho", "chi"], Language::Chinese),
+    (&["hi", "hin"], Language::Hindi),
+    (&["ru", "rus"], Language::Russian),
+    (&["tr", "tur"], Language::Turkish),
+    (&["uk", "ua", "ukr"], Language::Ukrainian),
+    (&["es", "spa"], Language::Spanish),
+    (&["fr", "fra", "fre"], Language::French),
+    (&["de", "deu", "ger"], Language::German),
+    (&["pt", "por"], Language::Portuguese),
+    (&["en", "eng"], Language::English),
+];
+
+fn parse_locale_token(token: &str) -> Option<Language> {
+    let normalized = token
+        .split(|c| matches!(c, '.' | '@'))
+        .next()
+        .unwrap_or(token)
+        .replace('-', "_")
+        .to_ascii_lowercase();
+    let language_code = normalized.split('_').next().unwrap_or(&normalized);
+
+    LOCALE_LANGUAGE_CODES.iter().find_map(|(codes, language)| {
+        codes
+            .iter()
+            .any(|code| *code == language_code)
+            .then_some(*language)
+    })
+}
+
 fn detect_system_language() -> Language {
-    fn parse_locale_token(token: &str) -> Option<Language> {
-        let without_encoding = token
-            .split(|c| matches!(c, '.' | '@'))
-            .next()
-            .unwrap_or(token);
-        let language_code = without_encoding
-            .split(|c| c == '_' || c == '-')
-            .next()
-            .unwrap_or(without_encoding)
-            .to_ascii_lowercase();
-
-        match language_code.as_str() {
-            "zh" => Some(Language::Chinese),
-            "hi" => Some(Language::Hindi),
-            "ru" => Some(Language::Russian),
-            "tr" => Some(Language::Turkish),
-            "uk" => Some(Language::Ukrainian),
-            "es" => Some(Language::Spanish),
-            "fr" => Some(Language::French),
-            "de" => Some(Language::German),
-            "pt" => Some(Language::Portuguese),
-            "en" => Some(Language::English),
-            _ => None,
-        }
-    }
-
     for var in ["LC_ALL", "LANGUAGE", "LANG"] {
         if let Ok(value) = std::env::var(var) {
             for token in value.split(':') {
@@ -162,6 +166,38 @@ fn detect_system_language() -> Language {
     }
 
     Language::English
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Language, parse_locale_token};
+
+    #[test]
+    fn parses_supported_languages_from_locale_tokens() {
+        let samples = [
+            ("en_US.UTF-8", Language::English),
+            ("uk_UA.UTF-8", Language::Ukrainian),
+            ("es-ES", Language::Spanish),
+            ("fr_FR", Language::French),
+            ("de-DE", Language::German),
+            ("pt-BR", Language::Portuguese),
+            ("zh-Hans", Language::Chinese),
+            ("hi_IN", Language::Hindi),
+            ("ru_RU", Language::Russian),
+            ("tr_TR", Language::Turkish),
+            ("ua-UA", Language::Ukrainian),
+            ("eng_US", Language::English),
+        ];
+
+        for (token, expected) in samples {
+            assert_eq!(parse_locale_token(token), Some(expected));
+        }
+    }
+
+    #[test]
+    fn ignores_unknown_language_tokens() {
+        assert_eq!(parse_locale_token("pl_PL"), None);
+    }
 }
 
 fn badge_frame(color: Color32) -> Frame {
