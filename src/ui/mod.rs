@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -16,7 +16,7 @@ use tokio::sync::{Mutex, mpsc};
 use crate::engine::LauncherEngine;
 use crate::engine::state::{AppState, AuthMode, UserAction};
 use crate::env;
-use crate::mods::{CurseForgeMod, ModAuthor};
+use crate::mods::{CurseForgeMod, InstalledMod, ModAuthor};
 use crate::process::ProcessLauncher;
 use crate::storage::StorageManager;
 use crate::updater::{self, UpdateStatus};
@@ -579,6 +579,7 @@ pub struct LauncherApp {
     version_fetch_error: Option<String>,
     version_input_error: Option<String>,
     diagnostics: Option<String>,
+    show_diagnostics_modal: bool,
     show_uninstall_confirm: bool,
     mod_query: String,
     mod_sort: ModSort,
@@ -586,6 +587,10 @@ pub struct LauncherApp {
     mod_results: Vec<CurseForgeMod>,
     mod_loading: bool,
     mod_error: Option<String>,
+    installed_mods: Vec<InstalledMod>,
+    installed_loading: bool,
+    installed_error: Option<String>,
+    removing_mod: Option<String>,
     mod_updates_rx: mpsc::UnboundedReceiver<ModUpdate>,
     mod_updates_tx: mpsc::UnboundedSender<ModUpdate>,
     news_updates_rx: mpsc::UnboundedReceiver<NewsUpdate>,
@@ -609,6 +614,9 @@ struct NewsItem {
 enum ModUpdate {
     Results(Vec<CurseForgeMod>),
     Error(String),
+    Installed(Vec<InstalledMod>),
+    InstalledError(String),
+    Removed { id: String, error: Option<String> },
 }
 
 #[derive(Debug)]
@@ -755,6 +763,7 @@ impl LauncherApp {
             version_fetch_error: None,
             version_input_error: None,
             diagnostics: None,
+            show_diagnostics_modal: false,
             show_uninstall_confirm: false,
             mod_query: String::new(),
             mod_sort: ModSort::Downloads,
@@ -762,6 +771,10 @@ impl LauncherApp {
             mod_results: Vec::new(),
             mod_loading: false,
             mod_error: None,
+            installed_mods: Vec::new(),
+            installed_loading: false,
+            installed_error: None,
+            removing_mod: None,
             mod_updates_rx: mod_rx,
             mod_updates_tx: mod_tx,
             news_updates_rx: news_rx,
@@ -777,6 +790,7 @@ impl LauncherApp {
         app.start_news_fetch();
         app.start_version_discovery();
         app.start_updater_check();
+        app.start_load_installed_mods();
         app
     }
 
@@ -846,6 +860,62 @@ impl LauncherApp {
         });
     }
 
+    fn start_load_installed_mods(&mut self) {
+        if self.installed_loading {
+            return;
+        }
+        self.installed_loading = true;
+        self.installed_error = None;
+        let tx = self.mod_updates_tx.clone();
+        let engine = self.engine.clone();
+        let rt = self.runtime.clone();
+        rt.spawn(async move {
+            let service = {
+                let locked = engine.lock().await;
+                locked.mods_service()
+            };
+            let result = service.installed_mods().await;
+            match result {
+                Ok(installed) => {
+                    let _ = tx.send(ModUpdate::Installed(installed));
+                }
+                Err(err) => {
+                    let _ = tx.send(ModUpdate::InstalledError(err));
+                }
+            }
+        });
+    }
+
+    fn start_remove_installed_mod(&mut self, mod_id: String) {
+        if self.installed_loading {
+            return;
+        }
+        self.removing_mod = Some(mod_id.clone());
+        self.installed_loading = true;
+        self.installed_error = None;
+        let tx = self.mod_updates_tx.clone();
+        let engine = self.engine.clone();
+        let rt = self.runtime.clone();
+        rt.spawn(async move {
+            let service = {
+                let locked = engine.lock().await;
+                locked.mods_service()
+            };
+            let result = service.remove_installed(&mod_id).await;
+            let update = match result {
+                Ok(_) => ModUpdate::Removed {
+                    id: mod_id.clone(),
+                    error: None,
+                },
+                Err(err) => ModUpdate::Removed {
+                    id: mod_id.clone(),
+                    error: Some(err),
+                },
+            };
+            let _ = tx.send(update);
+        });
+    }
+
     fn commit_player_name(&mut self) -> String {
         let cleaned = sanitize_player_name(&self.player_name);
         self.player_name = cleaned.clone();
@@ -910,6 +980,7 @@ impl LauncherApp {
             match &state {
                 AppState::DiagnosticsReady { report } => {
                     self.diagnostics = Some(report.clone());
+                    self.show_diagnostics_modal = true;
                     self.state = AppState::Idle;
                 }
                 AppState::ReadyToPlay { version } => {
@@ -917,6 +988,10 @@ impl LauncherApp {
                         self.set_selected_version(Some(parsed));
                     }
                     self.state = state;
+                }
+                AppState::Idle => {
+                    self.state = state;
+                    self.start_load_installed_mods();
                 }
                 _ => {
                     self.state = state;
@@ -927,9 +1002,9 @@ impl LauncherApp {
 
     fn sync_mod_updates(&mut self) {
         while let Ok(update) = self.mod_updates_rx.try_recv() {
-            self.mod_loading = false;
             match update {
                 ModUpdate::Results(results) => {
+                    self.mod_loading = false;
                     self.mod_results = results;
                     self.mod_error = None;
                     if let Some(selected) = &self.mod_category_filter {
@@ -944,7 +1019,29 @@ impl LauncherApp {
                     }
                 }
                 ModUpdate::Error(err) => {
+                    self.mod_loading = false;
                     self.mod_error = Some(err);
+                }
+                ModUpdate::Installed(mods) => {
+                    self.installed_loading = false;
+                    self.installed_mods = mods;
+                    self.installed_error = None;
+                    self.removing_mod = None;
+                }
+                ModUpdate::InstalledError(err) => {
+                    self.installed_loading = false;
+                    self.installed_error = Some(err);
+                    self.removing_mod = None;
+                }
+                ModUpdate::Removed { id, error } => {
+                    self.installed_loading = false;
+                    self.removing_mod = None;
+                    if let Some(err) = error {
+                        self.installed_error = Some(err);
+                    } else {
+                        self.installed_mods.retain(|m| m.id != id);
+                        self.installed_error = None;
+                    }
                 }
             }
         }
@@ -1094,7 +1191,7 @@ impl LauncherApp {
         }
     }
 
-    fn render_status(&self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
+    fn render_status(&mut self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
         section_frame(colors).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(RichText::new(i18n.status_label()).color(colors.text_muted));
@@ -1160,6 +1257,40 @@ impl LauncherApp {
                     ui.label(i18n.idle());
                 }
             }
+
+            ui.add_space(10.0);
+            ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                let play_enabled = matches!(self.state, AppState::ReadyToPlay { .. });
+                let busy_refresh = matches!(
+                    self.state,
+                    AppState::Downloading { .. }
+                        | AppState::CheckingForUpdates
+                        | AppState::DiagnosticsRunning
+                        | AppState::Uninstalling
+                        | AppState::Initialising
+                );
+                let play_btn = egui::Button::new(i18n.play_button())
+                    .fill(colors.accent)
+                    .stroke(Stroke::new(1.5, colors.accent_glow))
+                    .min_size(Vec2::new(120.0, 34.0));
+                if ui.add_enabled(play_enabled, play_btn).clicked() {
+                    let player_name = self.commit_player_name();
+                    self.trigger_action(UserAction::ClickPlay {
+                        player_name,
+                        auth_mode: self.auth_mode,
+                    });
+                }
+                ui.add_space(8.0);
+                let refresh_btn = egui::Button::new(i18n.status_refresh())
+                    .fill(colors.surface_elev)
+                    .stroke(Stroke::new(1.0, colors.border_strong))
+                    .min_size(Vec2::new(110.0, 32.0));
+                if ui.add_enabled(!busy_refresh, refresh_btn).clicked() {
+                    self.trigger_action(UserAction::CheckForUpdates {
+                        target_version: self.selected_version,
+                    });
+                }
+            });
         });
     }
 
@@ -1210,7 +1341,7 @@ impl LauncherApp {
 
     fn render_mods(&mut self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
         section_frame(colors).show(ui, |ui| {
-            ui.set_min_height(520.0);
+            ui.set_min_height(676.0);
             ui.horizontal(|ui| {
                 ui.heading(i18n.mods_heading());
                 if self.mod_loading {
@@ -1237,6 +1368,9 @@ impl LauncherApp {
                 ui.colored_label(colors.warning, i18n.mods_requires_game());
                 ui.add_space(4.0);
             }
+
+            self.render_installed_mods(ui, colors, i18n, mod_actions_locked);
+            ui.separator();
 
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
@@ -1350,7 +1484,7 @@ impl LauncherApp {
             });
 
             let total_results = self.mod_results.len();
-            let mut visible_mods: Vec<&CurseForgeMod> = self.mod_results.iter().collect();
+            let mut visible_mods: Vec<CurseForgeMod> = self.mod_results.clone();
             if let Some(category) = &self.mod_category_filter {
                 visible_mods.retain(|m| m.categories.iter().any(|c| c.name == *category));
             }
@@ -1392,10 +1526,20 @@ impl LauncherApp {
             }
 
             let scroll_height = ui.available_height().max(420.0);
+            let installed_by_cf: HashMap<i32, InstalledMod> = self
+                .installed_mods
+                .iter()
+                .map(|m| (m.curseforge_id, m.clone()))
+                .collect();
+            let removing_id = self.removing_mod.clone();
+            let remove_locked = mod_actions_locked || self.installed_loading;
             egui::ScrollArea::vertical()
                 .max_height(scroll_height)
                 .show(ui, |ui| {
-                    for m in visible_mods {
+                    for m in &visible_mods {
+                        let installed_entry = installed_by_cf.get(&m.id);
+                        let removing_match =
+                            removing_id.as_deref() == installed_entry.map(|i| i.id.as_str());
                         elevated_frame(colors).show(ui, |ui| {
                             ui.vertical(|ui| {
                                 let downloads = format_downloads(m.downloadCount);
@@ -1406,7 +1550,25 @@ impl LauncherApp {
                                     let url = mod_page_url(m);
                                     ui.hyperlink_to(RichText::new(&m.name).strong(), url);
                                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                        if ui
+                                        if let Some(installed) = installed_entry {
+                                            let remove_btn =
+                                                egui::Button::new(i18n.mods_remove_button())
+                                                    .fill(tint(colors.danger, 40))
+                                                    .stroke(Stroke::new(1.0, colors.danger))
+                                                    .min_size(Vec2::new(96.0, 30.0));
+                                            let busy = removing_match;
+                                            if ui
+                                                .add_enabled(!remove_locked && !busy, remove_btn)
+                                                .clicked()
+                                            {
+                                                self.start_remove_installed_mod(
+                                                    installed.id.clone(),
+                                                );
+                                            }
+                                            if busy {
+                                                ui.add(egui::Spinner::new());
+                                            }
+                                        } else if ui
                                             .add_enabled(
                                                 can_install_mods,
                                                 egui::Button::new(i18n.mods_install_button())
@@ -1468,6 +1630,108 @@ impl LauncherApp {
                     }
                 });
         });
+    }
+
+    fn render_installed_mods(
+        &mut self,
+        ui: &mut egui::Ui,
+        colors: &ThemePalette,
+        i18n: I18n,
+        mod_actions_locked: bool,
+    ) {
+        ui.horizontal(|ui| {
+            ui.heading(i18n.mods_installed_heading());
+            if self.installed_loading {
+                ui.add(egui::Spinner::new());
+            } else if ui
+                .add(
+                    egui::Button::new(i18n.mods_installed_refresh())
+                        .fill(colors.surface_elev)
+                        .stroke(Stroke::new(1.0, colors.border_strong))
+                        .min_size(Vec2::new(120.0, 28.0)),
+                )
+                .clicked()
+            {
+                self.start_load_installed_mods();
+            }
+        });
+
+        if let Some(err) = &self.installed_error {
+            ui.colored_label(colors.danger, i18n.mods_installed_error(err));
+            ui.add_space(4.0);
+        }
+
+        if self.installed_mods.is_empty() && !self.installed_loading {
+            ui.label(RichText::new(i18n.mods_installed_empty()).color(colors.text_faint));
+            ui.add_space(6.0);
+            return;
+        }
+
+        if self.installed_loading {
+            ui.label(RichText::new(i18n.mods_searching()).color(colors.text_muted));
+            ui.add_space(6.0);
+            return;
+        }
+
+        ui.add_space(4.0);
+        let removing_id = self.removing_mod.clone();
+        let remove_locked = mod_actions_locked || self.installed_loading;
+        let installed_list = self.installed_mods.clone();
+        for installed in installed_list {
+            elevated_frame(colors).show(ui, |ui| {
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(&installed.name).strong());
+                        ui.label(
+                            RichText::new(installed.version.clone())
+                                .color(colors.text_muted)
+                                .small(),
+                        );
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            let busy = removing_id.as_deref() == Some(&installed.id);
+                            let remove_btn = egui::Button::new(i18n.mods_remove_button())
+                                .fill(tint(colors.danger, 40))
+                                .stroke(Stroke::new(1.0, colors.danger))
+                                .min_size(Vec2::new(88.0, 26.0));
+                            if ui
+                                .add_enabled(!remove_locked && !busy, remove_btn)
+                                .clicked()
+                            {
+                                self.start_remove_installed_mod(installed.id.clone());
+                            }
+                            if busy {
+                                ui.add(egui::Spinner::new());
+                            }
+                        });
+                    });
+                    ui.horizontal_wrapped(|ui| {
+                        meta_chip_frame(colors).show(ui, |ui| {
+                            ui.label(
+                                RichText::new(i18n.mods_by(&installed.author))
+                                    .color(colors.text_muted)
+                                    .small(),
+                            );
+                        });
+                        if let Some(category) = &installed.category {
+                            chip_frame(colors.accent_soft).show(ui, |ui| {
+                                ui.label(
+                                    RichText::new(category.clone())
+                                        .color(colors.accent_glow)
+                                        .small(),
+                                );
+                            });
+                        }
+                    });
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new(&installed.description)
+                            .color(colors.text_muted)
+                            .small(),
+                    );
+                });
+            });
+        }
+        ui.add_space(6.0);
     }
 
     fn render_controls(&mut self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
@@ -1617,23 +1881,10 @@ impl LauncherApp {
                 ui.add_space(8.0);
 
                 ui.horizontal_wrapped(|ui| {
-                    let play_enabled = matches!(self.state, AppState::ReadyToPlay { .. });
                     let is_fetching = matches!(
                         self.state,
                         AppState::Downloading { .. } | AppState::CheckingForUpdates
                     );
-                    let play_btn = egui::Button::new(i18n.play_button())
-                        .fill(colors.accent)
-                        .stroke(Stroke::new(1.5, colors.accent_glow))
-                        .min_size(Vec2::new(120.0, 34.0));
-                    if ui.add_enabled(play_enabled, play_btn).clicked() {
-                        let player_name = self.commit_player_name();
-                        self.trigger_action(UserAction::ClickPlay {
-                            player_name,
-                            auth_mode: self.auth_mode,
-                        });
-                    }
-
                     let can_download = !is_fetching;
                     let download_btn = egui::Button::new(i18n.download_button())
                         .fill(colors.accent_soft)
@@ -1758,22 +2009,71 @@ impl LauncherApp {
         }
     }
 
-    fn render_diagnostics(&self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
-        if let Some(diag) = &self.diagnostics {
-            section_frame(colors).show(ui, |ui| {
-                ui.heading(i18n.diagnostics_heading());
-                ui.add_space(6.0);
-                egui::CollapsingHeader::new(i18n.view_report())
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        egui::ScrollArea::vertical()
-                            .max_height(DIAGNOSTICS_REPORT_HEIGHT)
-                            .show(ui, |ui| {
-                                ui.monospace(diag);
-                            });
-                    });
-            });
+    fn render_diagnostics(&mut self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
+        section_frame(colors).show(ui, |ui| {
+            ui.heading(i18n.diagnostics_heading());
+            ui.add_space(6.0);
+            if let Some(_) = &self.diagnostics {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(i18n.diagnostics_completed()).color(colors.text_muted));
+                    let view_btn = egui::Button::new(i18n.view_report())
+                        .fill(colors.accent_soft)
+                        .stroke(Stroke::new(1.0, colors.accent))
+                        .min_size(Vec2::new(120.0, 28.0));
+                    if ui.add(view_btn).clicked() {
+                        self.show_diagnostics_modal = true;
+                    }
+                });
+            } else {
+                ui.label(RichText::new(i18n.diagnostics_empty()).color(colors.text_muted));
+            }
+        });
+    }
+
+    fn render_diagnostics_modal(&mut self, ctx: &egui::Context, colors: &ThemePalette, i18n: I18n) {
+        if !self.show_diagnostics_modal {
+            return;
         }
+        let Some(diag) = &self.diagnostics else {
+            self.show_diagnostics_modal = false;
+            return;
+        };
+
+        let mut open = self.show_diagnostics_modal;
+        let mut close_requested = false;
+        egui::Window::new(i18n.diagnostics_heading())
+            .collapsible(false)
+            .resizable(true)
+            .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
+            .default_width(720.0)
+            .open(&mut open)
+            .show(ctx, |ui| {
+                ui.set_min_height(320.0);
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            RichText::new(i18n.diagnostics_completed()).color(colors.text_muted),
+                        );
+                        if ui
+                            .add(
+                                egui::Button::new(i18n.close_button())
+                                    .fill(colors.surface_elev)
+                                    .stroke(Stroke::new(1.0, colors.border_strong)),
+                            )
+                            .clicked()
+                        {
+                            close_requested = true;
+                        }
+                    });
+                    ui.add_space(8.0);
+                    egui::ScrollArea::vertical()
+                        .max_height(DIAGNOSTICS_REPORT_HEIGHT)
+                        .show(ui, |ui| {
+                            ui.monospace(diag);
+                        });
+                });
+            });
+        self.show_diagnostics_modal = open && !close_requested;
     }
 }
 
@@ -1841,52 +2141,59 @@ impl eframe::App for LauncherApp {
                                         );
                                     });
                             });
-                            ui.add_space(10.0);
-                            ui.scope(|ui| {
-                                ui.set_height(control_height);
-                                badge_frame(colors.border_strong).show(ui, |ui| {
-                                    ui.label(
-                                        RichText::new(
-                                            top_bar_i18n.launcher_version(self.launcher_version),
-                                        )
-                                        .color(colors.text_primary)
-                                        .small(),
-                                    );
-                                });
-                            });
-                            if let UpdateStatus::UpdateAvailable {
-                                latest_version,
-                                url,
-                            } = &self.updater_status
-                            {
-                                ui.add_space(10.0);
-                                ui.scope(|ui| {
-                                    ui.set_height(control_height);
-                                    let update_btn = egui::Button::new(
-                                        RichText::new(
-                                            top_bar_i18n.update_available(latest_version),
-                                        )
-                                        .color(colors.text_primary)
-                                        .small(),
-                                    )
-                                    .fill(colors.info)
-                                    .stroke(Stroke::new(1.0, colors.accent_glow));
-                                    if ui.add(update_btn).clicked() {
-                                        ui.output_mut(|o| {
-                                            o.open_url = Some(egui::output::OpenUrl {
-                                                url: url.clone(),
-                                                new_tab: true,
-                                            });
-                                        });
-                                    }
-                                });
-                            }
                         },
                     );
                 });
             });
 
         let i18n = self.i18n();
+
+        egui::TopBottomPanel::bottom("bottom_bar")
+            .frame(
+                Frame::none()
+                    .fill(colors.panel)
+                    .stroke(Stroke::new(1.0, colors.border))
+                    .inner_margin(Margin::symmetric(16.0, 10.0)),
+            )
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    self.render_discord_button(ui, &colors, i18n);
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if let UpdateStatus::UpdateAvailable {
+                            latest_version,
+                            url,
+                        } = &self.updater_status
+                        {
+                            ui.scope(|ui| {
+                                ui.set_height(30.0);
+                                let update_btn = egui::Button::new(
+                                    RichText::new(i18n.update_available(latest_version))
+                                        .color(colors.text_primary)
+                                        .small(),
+                                )
+                                .fill(colors.info)
+                                .stroke(Stroke::new(1.0, colors.accent_glow));
+                                if ui.add(update_btn).clicked() {
+                                    ui.output_mut(|o| {
+                                        o.open_url = Some(egui::output::OpenUrl {
+                                            url: url.clone(),
+                                            new_tab: true,
+                                        });
+                                    });
+                                }
+                            });
+                            ui.add_space(10.0);
+                        }
+                        badge_frame(colors.border_strong).show(ui, |ui| {
+                            ui.label(
+                                RichText::new(i18n.launcher_version(self.launcher_version))
+                                    .color(colors.text_primary)
+                                    .small(),
+                            );
+                        });
+                    });
+                });
+            });
         egui::CentralPanel::default()
             .frame(
                 Frame::none()
@@ -1898,8 +2205,6 @@ impl eframe::App for LauncherApp {
                     let full_width = ui.available_width();
                     let gutter = 18.0;
                     if full_width <= gutter {
-                        self.render_discord_button(ui, &colors, i18n);
-                        ui.add_space(12.0);
                         self.render_status(ui, &colors, i18n);
                         ui.add_space(12.0);
                         self.render_controls(ui, &colors, i18n);
@@ -1918,8 +2223,6 @@ impl eframe::App for LauncherApp {
                             Vec2::new(left_width, 0.0),
                             Layout::top_down(Align::LEFT),
                             |ui| {
-                                self.render_discord_button(ui, &colors, i18n);
-                                ui.add_space(12.0);
                                 self.render_status(ui, &colors, i18n);
                                 ui.add_space(12.0);
                                 self.render_controls(ui, &colors, i18n);
@@ -1940,5 +2243,6 @@ impl eframe::App for LauncherApp {
                     self.render_news(ui, &colors, i18n);
                 });
             });
+        self.render_diagnostics_modal(ctx, &colors, i18n);
     }
 }

@@ -207,8 +207,15 @@ impl LauncherEngine {
             }
             UserAction::DownloadMod { mod_id } => match self.download_mod(mod_id, updates).await {
                 Ok(_) => {
-                    self.state = AppState::Idle;
-                    updates.send(AppState::Idle).ok();
+                    let next_state = if let Some(local) = self.storage.read_local_state().await {
+                        AppState::ReadyToPlay {
+                            version: local.version,
+                        }
+                    } else {
+                        AppState::Idle
+                    };
+                    self.state = next_state.clone();
+                    updates.send(next_state).ok();
                     info!("mod {} downloaded", mod_id);
                 }
                 Err(err) => {

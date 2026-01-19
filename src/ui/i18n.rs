@@ -112,12 +112,27 @@ impl I18n {
         self.pick("Working", "Виконується")
     }
 
+    pub fn status_refresh(self) -> &'static str {
+        self.pick("Refresh", "Оновити")
+    }
+
     pub fn diagnostics_running(self) -> &'static str {
         self.pick("Running diagnostics...", "Виконується діагностика...")
     }
 
     pub fn diagnostics_completed(self) -> &'static str {
         self.pick("Diagnostics completed.", "Діагностику завершено.")
+    }
+
+    pub fn diagnostics_empty(self) -> &'static str {
+        self.pick(
+            "No diagnostics report available yet.",
+            "Звіт діагностики ще недоступний.",
+        )
+    }
+
+    pub fn close_button(self) -> &'static str {
+        self.pick("Close", "Закрити")
     }
 
     pub fn news_subheading(self) -> &'static str {
@@ -207,6 +222,29 @@ impl I18n {
             "No mods match the current filters.",
             "Немає модів, що відповідають поточним фільтрам.",
         )
+    }
+
+    pub fn mods_installed_heading(self) -> &'static str {
+        self.pick("Installed mods", "Встановлені моди")
+    }
+
+    pub fn mods_installed_empty(self) -> &'static str {
+        self.pick("No mods installed yet.", "Ще немає встановлених модів.")
+    }
+
+    pub fn mods_installed_error(self, err: &str) -> String {
+        match self.language {
+            Language::English => format!("Installed mods failed: {err}"),
+            Language::Ukrainian => format!("Не вдалося отримати встановлені моди: {err}"),
+        }
+    }
+
+    pub fn mods_installed_refresh(self) -> &'static str {
+        self.pick("Refresh installed", "Оновити список")
+    }
+
+    pub fn mods_remove_button(self) -> &'static str {
+        self.pick("Remove", "Видалити")
     }
 
     pub fn mods_requires_game(self) -> &'static str {

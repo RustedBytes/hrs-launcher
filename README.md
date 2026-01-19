@@ -86,10 +86,16 @@ ln -s /usr/lib/x86_64-linux-gnu/libzstd.so.1 /home/yehor/.local/share/hrs-launch
 
 ## TODO
 
-- [ ] Add more languages
-- [ ] Improve mod management features
-- [ ] Add online mode
 - [x] Add a button to open Game folder
 - [x] Increase height of textarea field for Diagnostics
 - [x] Cancel button does not work for JRE downloading
 - [x] Save selected game version between restarts
+- [x] Move the Play button to Status block
+- [x] Move Launcher version to the bottom of the window
+- [x] Show results of diagnostics in a modal window
+- [x] Improve mod management features
+  - [x] Show installed mods
+  - [x] A feature to remove installed mod
+- [x] When game is downloaded, Play button should be enabled
+- [ ] Add more languages
+- [ ] Add online mode

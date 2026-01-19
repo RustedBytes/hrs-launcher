@@ -276,6 +276,29 @@ impl ModService {
         Ok(installed)
     }
 
+    pub async fn installed_mods(&self) -> Result<Vec<InstalledMod>, String> {
+        let manifest = self.load_manifest().await?;
+        Ok(manifest.mods)
+    }
+
+    pub async fn remove_installed(&self, mod_id: &str) -> Result<(), String> {
+        let mut manifest = self.load_manifest().await?;
+        if let Some(entry) = manifest.mods.iter().find(|m| m.id == mod_id) {
+            let path = PathBuf::from(&entry.file_path);
+            if path.exists() {
+                fs::remove_file(&path)
+                    .await
+                    .map_err(|e| format!("failed to delete mod file: {e}"))?;
+            }
+        }
+        let initial_len = manifest.mods.len();
+        manifest.mods.retain(|m| m.id != mod_id);
+        if manifest.mods.len() == initial_len {
+            return Err("mod not found in manifest".into());
+        }
+        self.save_manifest(&manifest).await
+    }
+
     async fn upsert_manifest_entry(&self, mod_entry: InstalledMod) -> Result<(), String> {
         let mut manifest = self.load_manifest().await?;
         if let Some(existing) = manifest.mods.iter_mut().find(|m| m.id == mod_entry.id) {
