@@ -19,6 +19,7 @@ use crate::env;
 use crate::mods::{CurseForgeMod, ModAuthor};
 use crate::process::ProcessLauncher;
 use crate::storage::StorageManager;
+use crate::updater::{self, UpdateStatus};
 
 mod i18n;
 use self::i18n::{I18n, Language};
@@ -591,6 +592,10 @@ pub struct LauncherApp {
     news_updates_tx: mpsc::UnboundedSender<NewsUpdate>,
     version_updates_rx: mpsc::UnboundedReceiver<VersionUpdate>,
     version_updates_tx: mpsc::UnboundedSender<VersionUpdate>,
+    updater_status: UpdateStatus,
+    updater_loading: bool,
+    updater_updates_rx: mpsc::UnboundedReceiver<UpdaterUpdate>,
+    updater_updates_tx: mpsc::UnboundedSender<UpdaterUpdate>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -616,6 +621,11 @@ enum NewsUpdate {
 enum VersionUpdate {
     Available { versions: Vec<u32>, latest: u32 },
     Error(String),
+}
+
+#[derive(Debug)]
+enum UpdaterUpdate {
+    Status(UpdateStatus),
 }
 
 fn section_frame(colors: &ThemePalette) -> Frame {
@@ -708,6 +718,7 @@ impl LauncherApp {
         let (mod_tx, mod_rx) = mpsc::unbounded_channel();
         let (news_tx, news_rx) = mpsc::unbounded_channel();
         let (version_tx, version_rx) = mpsc::unbounded_channel();
+        let (updater_tx, updater_rx) = mpsc::unbounded_channel();
 
         let bootstrap_engine = engine.clone();
         let bootstrap_tx = tx.clone();
@@ -757,10 +768,15 @@ impl LauncherApp {
             news_updates_tx: news_tx,
             version_updates_rx: version_rx,
             version_updates_tx: version_tx,
+            updater_status: UpdateStatus::UpToDate,
+            updater_loading: false,
+            updater_updates_rx: updater_rx,
+            updater_updates_tx: updater_tx,
         };
 
         app.start_news_fetch();
         app.start_version_discovery();
+        app.start_updater_check();
         app
     }
 
@@ -974,6 +990,37 @@ impl LauncherApp {
                 }
                 VersionUpdate::Error(err) => {
                     self.version_fetch_error = Some(err);
+                }
+            }
+        }
+    }
+
+    fn start_updater_check(&mut self) {
+        if self.updater_loading {
+            return;
+        }
+        self.updater_loading = true;
+        let tx = self.updater_updates_tx.clone();
+        let current_version = self.launcher_version.to_owned();
+        let rt = self.runtime.clone();
+        rt.spawn(async move {
+            match updater::check_for_updates(&current_version).await {
+                Ok(status) => {
+                    let _ = tx.send(UpdaterUpdate::Status(status));
+                }
+                Err(err) => {
+                    let _ = tx.send(UpdaterUpdate::Status(UpdateStatus::CheckFailed(err)));
+                }
+            }
+        });
+    }
+
+    fn sync_updater_updates(&mut self) {
+        while let Ok(update) = self.updater_updates_rx.try_recv() {
+            self.updater_loading = false;
+            match update {
+                UpdaterUpdate::Status(status) => {
+                    self.updater_status = status;
                 }
             }
         }
@@ -1736,6 +1783,7 @@ impl eframe::App for LauncherApp {
         self.sync_mod_updates();
         self.sync_version_updates();
         self.sync_news_updates();
+        self.sync_updater_updates();
         let colors = self.colors();
         apply_theme(ctx, &colors);
         let top_bar_i18n = self.i18n();
@@ -1806,6 +1854,33 @@ impl eframe::App for LauncherApp {
                                     );
                                 });
                             });
+                            if let UpdateStatus::UpdateAvailable {
+                                latest_version,
+                                url,
+                            } = &self.updater_status
+                            {
+                                ui.add_space(10.0);
+                                ui.scope(|ui| {
+                                    ui.set_height(control_height);
+                                    let update_btn = egui::Button::new(
+                                        RichText::new(
+                                            top_bar_i18n.update_available(latest_version),
+                                        )
+                                        .color(colors.text_primary)
+                                        .small(),
+                                    )
+                                    .fill(colors.info)
+                                    .stroke(Stroke::new(1.0, colors.accent_glow));
+                                    if ui.add(update_btn).clicked() {
+                                        ui.output_mut(|o| {
+                                            o.open_url = Some(egui::output::OpenUrl {
+                                                url: url.clone(),
+                                                new_tab: true,
+                                            });
+                                        });
+                                    }
+                                });
+                            }
                         },
                     );
                 });
