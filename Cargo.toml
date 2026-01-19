@@ -5,18 +5,18 @@ edition = "2024"
 license = "MIT"
 
 [dependencies]
-eframe = { version = "0.27", features = ["wgpu"] }
+eframe = { version = "0.33", features = ["wgpu"] }
 indicatif = "0.18.3"
 open = "5.3.3"
 reqwest = { version = "0.13.1", features = ["json", "stream"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-scraper = "0.20.0"
+scraper = "0.25.0"
 sha2 = "0.10.9"
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "fs", "time"] }
-flate2 = "1.0"
+flate2 = "1.1"
 tar = "0.4"
-zip = { version = "0.6", default-features = false, features = ["deflate"] }
+zip = { version = "7.1", default-features = false, features = ["deflate"] }
 icns = "0.3"
 clap = { version = "4.5", features = ["derive"] }
 futures-util = "0.3"
@@ -24,7 +24,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 walkdir = "2"
 log = "0.4.29"
 env_logger = "0.11"
-sysinfo = "0.29"
+sysinfo = "0.37"
 rfd = "0.17.2"
 
 [profile.release]
