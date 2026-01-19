@@ -119,6 +119,42 @@ fn tint(color: Color32, alpha: u8) -> Color32 {
     Color32::from_rgba_premultiplied(color.r(), color.g(), color.b(), alpha)
 }
 
+fn detect_system_language() -> Language {
+    fn parse_locale_token(token: &str) -> Option<Language> {
+        let without_encoding = token
+            .split(|c| matches!(c, '.' | '@'))
+            .next()
+            .unwrap_or(token);
+        let language_code = without_encoding
+            .split(|c| c == '_' || c == '-')
+            .next()
+            .unwrap_or(without_encoding)
+            .to_ascii_lowercase();
+
+        match language_code.as_str() {
+            "uk" => Some(Language::Ukrainian),
+            "es" => Some(Language::Spanish),
+            "fr" => Some(Language::French),
+            "de" => Some(Language::German),
+            "pt" => Some(Language::Portuguese),
+            "en" => Some(Language::English),
+            _ => None,
+        }
+    }
+
+    for var in ["LC_ALL", "LANGUAGE", "LANG"] {
+        if let Ok(value) = std::env::var(var) {
+            for token in value.split(':') {
+                if let Some(language) = parse_locale_token(token) {
+                    return language;
+                }
+            }
+        }
+    }
+
+    Language::English
+}
+
 fn badge_frame(color: Color32) -> Frame {
     Frame::none()
         .fill(tint(color, 32))
@@ -739,6 +775,7 @@ impl LauncherApp {
         let version_input = saved_version
             .map(|version| version.to_string())
             .unwrap_or_default();
+        let language = detect_system_language();
 
         let mut app = Self {
             runtime,
@@ -748,7 +785,7 @@ impl LauncherApp {
             updates_tx: tx,
             state: AppState::Initialising,
             launcher_version: env!("CARGO_PKG_VERSION"),
-            language: Language::English,
+            language,
             theme: Theme::Dark,
             news: load_news_from_file(),
             news_loading: false,
