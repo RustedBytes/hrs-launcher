@@ -30,7 +30,7 @@ const NEWS_PREVIEW_FALLBACK_EN: &str = "Read more on hytale.com.";
 const PLAYER_NAME_FILE: &str = "player_name.txt";
 const SELECTED_VERSION_FILE: &str = "selected_version.txt";
 const DEFAULT_PLAYER_NAME: &str = "Player";
-const DIAGNOSTICS_REPORT_HEIGHT: f32 = 480.0;
+const DIAGNOSTICS_REPORT_HEIGHT: f32 = 720.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Theme {
