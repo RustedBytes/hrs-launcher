@@ -91,4 +91,4 @@ ln -s /usr/lib/x86_64-linux-gnu/libzstd.so.1 /home/yehor/.local/share/hrs-launch
 - [ ] Add online mode
 - [ ] Add a button to open Game folder
 - [ ] Increase height of textarea field for Diagnostics
-- [ ] Cancel button does not work for JRE downloading
+- [x] Cancel button does not work for JRE downloading

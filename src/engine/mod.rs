@@ -398,7 +398,7 @@ impl LauncherEngine {
         };
         let _ = updates.send(state);
         info!("ensure_jre_ready: ensuring runtime");
-        self.jre.ensure_jre().await?;
+        self.jre.ensure_jre(Some(self.cancel_flag.as_ref())).await?;
         info!("ensure_jre_ready: runtime available");
         Ok(())
     }

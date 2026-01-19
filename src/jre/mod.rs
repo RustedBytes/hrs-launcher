@@ -3,14 +3,18 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::env;
 use flate2::read::GzDecoder;
+use futures_util::StreamExt;
 use log::{debug, info, warn};
 use reqwest::Client;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tar::Archive;
+use tokio::fs as async_fs;
+use tokio::io::AsyncWriteExt;
 use zip::read::ZipArchive;
 
 const JRE_CONFIG_URL: &str =
@@ -18,6 +22,7 @@ const JRE_CONFIG_URL: &str =
 const LOCAL_JRE_CONFIG: &str = "jre.json";
 const JRE_VERSION: &str = "25";
 const EMBEDDED_JRE_CONFIG: &str = include_str!("../../jre.json");
+const CANCELLED: &str = "Download cancelled";
 
 #[derive(Debug, Clone, Deserialize)]
 struct JrePlatform {
@@ -62,8 +67,9 @@ impl JreManager {
         Self::new(env::default_app_dir())
     }
 
-    pub async fn ensure_jre(&self) -> Result<PathBuf, String> {
+    pub async fn ensure_jre(&self, cancel_flag: Option<&AtomicBool>) -> Result<PathBuf, String> {
         info!("jre: ensuring runtime");
+        check_cancel(cancel_flag)?;
         let java_path = self.java_path();
         if java_path.exists() {
             debug!("jre: runtime already present at {}", java_path.display());
@@ -77,6 +83,7 @@ impl JreManager {
             }
         }
 
+        check_cancel(cancel_flag)?;
         fs::create_dir_all(&self.jre_dir).map_err(|e| format!("unable to create JRE dir: {e}"))?;
         fs::create_dir_all(&self.cache_dir)
             .map_err(|e| format!("unable to create cache dir: {e}"))?;
@@ -85,6 +92,7 @@ impl JreManager {
             .fetch_remote_config()
             .await
             .or_else(|_| self.load_local_config())?;
+        check_cancel(cancel_flag)?;
         let target = self
             .pick_platform_target(&config)
             .unwrap_or_else(|| self.adoptium_fallback());
@@ -109,15 +117,24 @@ impl JreManager {
         }
         if needs_download {
             info!("jre: downloading archive to {}", archive_path.display());
-            self.download(&target.url, &archive_path)
+            self.download(&target.url, &archive_path, cancel_flag)
                 .await
-                .map_err(|e| format!("failed to download JRE: {e}"))?;
+                .map_err(|e| {
+                    if e == CANCELLED {
+                        e
+                    } else {
+                        format!("failed to download JRE: {e}")
+                    }
+                })?;
         }
+        check_cancel(cancel_flag)?;
         if let Some(expected) = expected_checksum.as_deref() {
             self.verify_sha256(&archive_path, expected)?;
         }
 
+        check_cancel(cancel_flag)?;
         self.extract_archive(&archive_path, target.archive)?;
+        check_cancel(cancel_flag)?;
         self.normalize_layout()?;
 
         info!("jre: ready at {}", java_path.display());
@@ -193,7 +210,12 @@ impl JreManager {
         }
     }
 
-    async fn download(&self, url: &str, dest: &Path) -> Result<(), String> {
+    async fn download(
+        &self,
+        url: &str,
+        dest: &Path,
+        cancel_flag: Option<&AtomicBool>,
+    ) -> Result<(), String> {
         let resp = self
             .client
             .get(url)
@@ -202,15 +224,33 @@ impl JreManager {
             .map_err(|e| format!("download request failed: {e}"))?
             .error_for_status()
             .map_err(|e| format!("download status error: {e}"))?;
-        let bytes = resp
-            .bytes()
-            .await
-            .map_err(|e| format!("download read error: {e}"))?;
         if let Some(parent) = dest.parent() {
-            fs::create_dir_all(parent)
+            async_fs::create_dir_all(parent)
+                .await
                 .map_err(|e| format!("failed to create download dir: {e}"))?;
         }
-        fs::write(dest, &bytes).map_err(|e| format!("failed to write archive: {e}"))?;
+
+        let mut file = async_fs::File::create(dest)
+            .await
+            .map_err(|e| format!("failed to create archive file: {e}"))?;
+        let mut stream = resp.bytes_stream();
+        while let Some(chunk_res) = stream.next().await {
+            if is_cancelled(cancel_flag) {
+                let _ = async_fs::remove_file(dest).await;
+                return Err(CANCELLED.into());
+            }
+            let chunk = chunk_res.map_err(|e| format!("download read error: {e}"))?;
+            file.write_all(&chunk)
+                .await
+                .map_err(|e| format!("failed to write archive: {e}"))?;
+        }
+        if is_cancelled(cancel_flag) {
+            let _ = async_fs::remove_file(dest).await;
+            return Err(CANCELLED.into());
+        }
+        file.flush()
+            .await
+            .map_err(|e| format!("failed to flush archive: {e}"))?;
         Ok(())
     }
 
@@ -325,6 +365,20 @@ impl JreManager {
         let _ = fs::remove_dir_all(subdir);
         Ok(())
     }
+}
+
+fn check_cancel(cancel_flag: Option<&AtomicBool>) -> Result<(), String> {
+    if is_cancelled(cancel_flag) {
+        warn!("jre: cancellation requested");
+        return Err(CANCELLED.into());
+    }
+    Ok(())
+}
+
+fn is_cancelled(cancel_flag: Option<&AtomicBool>) -> bool {
+    cancel_flag
+        .map(|flag| flag.load(Ordering::SeqCst))
+        .unwrap_or(false)
 }
 
 fn copy_dir(from: &Path, to: &Path) -> Result<(), String> {
