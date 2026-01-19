@@ -439,29 +439,10 @@ impl I18n {
         self.pick("No news available.", "Наразі немає новин.")
     }
 
-    #[allow(dead_code)]
     pub fn update_available(self, version: &str) -> String {
         match self.language {
             Language::English => format!("Update available: {version}"),
             Language::Ukrainian => format!("Доступне оновлення: {version}"),
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn update_download_button(self) -> &'static str {
-        self.pick("Download update", "Завантажити оновлення")
-    }
-
-    #[allow(dead_code)]
-    pub fn update_checking(self) -> &'static str {
-        self.pick("Checking for launcher updates...", "Перевірка оновлень лаунчера...")
-    }
-
-    #[allow(dead_code)]
-    pub fn update_check_failed(self, err: &str) -> String {
-        match self.language {
-            Language::English => format!("Update check failed: {err}"),
-            Language::Ukrainian => format!("Помилка перевірки оновлень: {err}"),
         }
     }
 }
