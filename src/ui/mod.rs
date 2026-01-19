@@ -28,6 +28,7 @@ const NEWS_URL: &str = "https://hytale.com/news";
 const NEWS_MAX_ITEMS: usize = 6;
 const NEWS_PREVIEW_FALLBACK_EN: &str = "Read more on hytale.com.";
 const PLAYER_NAME_FILE: &str = "player_name.txt";
+const SELECTED_VERSION_FILE: &str = "selected_version.txt";
 const DEFAULT_PLAYER_NAME: &str = "Player";
 const DIAGNOSTICS_REPORT_HEIGHT: f32 = 480.0;
 
@@ -169,6 +170,18 @@ fn load_player_name_from_file() -> String {
     DEFAULT_PLAYER_NAME.to_owned()
 }
 
+fn load_selected_version_from_file() -> Option<u32> {
+    let path = env::default_app_dir().join(SELECTED_VERSION_FILE);
+    if let Ok(raw) = fs::read_to_string(path) {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        return trimmed.parse::<u32>().ok().filter(|version| *version > 0);
+    }
+    None
+}
+
 fn save_player_name_to_file(name: &str) -> Result<(), String> {
     let path = env::default_app_dir().join(PLAYER_NAME_FILE);
     if let Some(parent) = path.parent() {
@@ -176,6 +189,29 @@ fn save_player_name_to_file(name: &str) -> Result<(), String> {
             .map_err(|err| format!("failed to create player name dir: {err}"))?;
     }
     fs::write(path, name.as_bytes()).map_err(|err| format!("failed to save player name: {err}"))
+}
+
+fn save_selected_version_to_file(version: Option<u32>) -> Result<(), String> {
+    let path = env::default_app_dir().join(SELECTED_VERSION_FILE);
+    match version {
+        Some(value) => {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|err| format!("failed to create selected version dir: {err}"))?;
+            }
+            let contents = value.to_string();
+            fs::write(&path, contents.as_bytes())
+                .map_err(|err| format!("failed to save selected version: {err}"))
+        }
+        None => {
+            if fs::metadata(&path).is_ok() {
+                fs::remove_file(&path)
+                    .map_err(|err| format!("failed to clear selected version: {err}"))
+            } else {
+                Ok(())
+            }
+        }
+    }
 }
 
 fn sanitize_player_name(name: &str) -> String {
@@ -679,6 +715,10 @@ impl LauncherApp {
             let mut locked = bootstrap_engine.lock().await;
             locked.load_local_state(&bootstrap_tx).await;
         });
+        let saved_version = load_selected_version_from_file();
+        let version_input = saved_version
+            .map(|version| version.to_string())
+            .unwrap_or_default();
 
         let mut app = Self {
             runtime,
@@ -696,8 +736,8 @@ impl LauncherApp {
             player_name_error: None,
             auth_mode: AuthMode::Offline,
             available_versions: Vec::new(),
-            selected_version: None,
-            version_input: String::new(),
+            selected_version: saved_version,
+            version_input,
             version_loading: false,
             version_fetch_error: None,
             version_input_error: None,
@@ -931,6 +971,7 @@ impl LauncherApp {
         self.selected_version = version;
         self.version_input = version.map(|v| v.to_string()).unwrap_or_default();
         self.version_input_error = None;
+        self.persist_selected_version();
     }
 
     fn sync_version_selection(&mut self, previous: Option<u32>) {
@@ -940,6 +981,13 @@ impl LauncherApp {
                 .map(|v| v.to_string())
                 .unwrap_or_default();
             self.version_input_error = None;
+            self.persist_selected_version();
+        }
+    }
+
+    fn persist_selected_version(&self) {
+        if let Err(err) = save_selected_version_to_file(self.selected_version) {
+            warn!("failed to persist selected version: {}", err);
         }
     }
 
