@@ -94,5 +94,7 @@ ln -s /usr/lib/x86_64-linux-gnu/libzstd.so.1 /home/yehor/.local/share/hrs-launch
   - [x] Show installed mods
   - [x] A feature to remove installed mod
 - [x] When game is downloaded, Play button should be enabled
-- [ ] Add more languages
+- [x] Add more languages
 - [ ] Add online mode
+
+If you need a feature, create an issue in our issue tracker: https://github.com/RustedBytes/hrs-launcher/issues
