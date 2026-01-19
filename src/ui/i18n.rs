@@ -731,6 +731,51 @@ impl I18n {
         )
     }
 
+    pub fn mods_drop_hint(self) -> &'static str {
+        self.pick(
+            "Drag & drop mod files to install.",
+            "Перетягніть файли модів, щоб встановити їх.",
+            "Arrastra y suelta archivos de mods para instalarlos.",
+            "Glissez-déposez les fichiers de mods pour les installer.",
+            "Ziehe Mod-Dateien hierher, um sie zu installieren.",
+            "Arraste e solte arquivos de mods para instalá-los.",
+            "拖放模组文件即可安装。",
+            "मोड फ़ाइलों को खींचें और छोड़ें, इंस्टॉल हो जाएंगी।",
+            "Перетащите файлы модов, чтобы установить их.",
+            "Mod dosyalarını sürükleyip bırakın ve kurun.",
+        )
+    }
+
+    pub fn mods_drop_subtitle(self) -> &'static str {
+        self.pick(
+            "Files are copied into your mods folder.",
+            "Файли буде скопійовано до папки модів.",
+            "Los archivos se copiarán a tu carpeta de mods.",
+            "Les fichiers seront copiés dans votre dossier de mods.",
+            "Die Dateien werden in deinen Mods-Ordner kopiert.",
+            "Os arquivos serão copiados para sua pasta de mods.",
+            "文件会复制到你的模组文件夹。",
+            "फ़ाइलें आपके मॉड फ़ोल्डर में कॉपी होंगी।",
+            "Файлы будут скопированы в папку модов.",
+            "Dosyalar modlar klasörüne kopyalanır.",
+        )
+    }
+
+    pub fn mods_drop_disabled(self) -> &'static str {
+        self.pick(
+            "Mod installs are temporarily disabled.",
+            "Встановлення модів тимчасово вимкнено.",
+            "Las instalaciones de mods están deshabilitadas temporalmente.",
+            "L'installation des mods est momentanément désactivée.",
+            "Mod-Installationen sind vorübergehend deaktiviert.",
+            "Instalações de mods temporariamente desativadas.",
+            "模组安装暂时已禁用。",
+            "मोड इंस्टॉल अस्थायी रूप से निष्क्रिय हैं।",
+            "Установка модов временно недоступна.",
+            "Mod kurulumu geçici olarak devre dışı.",
+        )
+    }
+
     pub fn mods_install_button(self) -> &'static str {
         self.pick(
             "Install",

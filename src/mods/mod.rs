@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(non_snake_case)]
 
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -249,7 +250,8 @@ impl ModService {
                 l.url.clone()
             }
         });
-        let timestamp = Utc::now().to_rfc3339();
+        let now = Utc::now();
+        let timestamp = now.to_rfc3339();
 
         let installed = InstalledMod {
             id: format!("cf-{}", details.id),
@@ -273,6 +275,66 @@ impl ModService {
         self.upsert_manifest_entry(installed.clone()).await?;
         progress(100.0, &format!("Installed {} successfully", details.name));
 
+        Ok(installed)
+    }
+
+    /// Install a mod from a locally available archive by copying it into the mods directory
+    /// and recording it in the manifest.
+    #[must_use]
+    pub async fn install_from_path(&self, source: &Path) -> Result<InstalledMod, String> {
+        let metadata = fs::metadata(source)
+            .await
+            .map_err(|e| format!("failed to read mod file metadata: {e}"))?;
+        if !metadata.is_file() {
+            return Err("Only files can be installed as mods.".into());
+        }
+        let file_name = source
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or("Mod file name is invalid.")?;
+        let dest = self
+            .next_available_destination(file_name)
+            .await
+            .map_err(|e| format!("unable to determine destination for mod file: {e}"))?;
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent)
+                .await
+                .map_err(|e| format!("unable to create mods dir: {e}"))?;
+        }
+        fs::copy(source, &dest)
+            .await
+            .map_err(|e| format!("failed to copy mod file: {e}"))?;
+
+        let now = Utc::now();
+        let timestamp = now.to_rfc3339();
+        let base_name = source
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .map(|stem| stem.to_owned())
+            .unwrap_or_else(|| file_name.to_owned());
+        let slug = slugify(&base_name);
+        let version = file_version_label(&metadata);
+
+        let installed = InstalledMod {
+            id: format!("local-{slug}-{}", now.timestamp_millis()),
+            name: base_name,
+            slug,
+            version,
+            author: "Local file".into(),
+            description: "Imported from local file.".into(),
+            download_url: source.display().to_string(),
+            curseforge_id: -1,
+            file_id: 0,
+            enabled: true,
+            installed_at: timestamp.clone(),
+            updated_at: timestamp,
+            file_path: dest.display().to_string(),
+            icon_url: None,
+            downloads: 0,
+            category: None,
+        };
+
+        self.upsert_manifest_entry(installed.clone()).await?;
         Ok(installed)
     }
 
@@ -334,6 +396,34 @@ impl ModService {
         fs::write(&path, &bytes)
             .await
             .map_err(|e| format!("failed to write manifest: {e}"))
+    }
+
+    async fn next_available_destination(&self, file_name: &str) -> Result<PathBuf, String> {
+        let base_path = Path::new(file_name);
+        let stem = base_path
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or("mod");
+        let ext = base_path.extension().and_then(|ext| ext.to_str());
+
+        let mut candidate = self.mods_dir.join(file_name);
+        let mut index: u32 = 1;
+        loop {
+            match fs::metadata(&candidate).await {
+                Ok(_) => {
+                    let new_name = match ext {
+                        Some(ext) if !ext.is_empty() => format!("{stem}_{index}.{ext}"),
+                        _ => format!("{stem}_{index}"),
+                    };
+                    candidate = self.mods_dir.join(new_name);
+                    index = index.saturating_add(1);
+                }
+                Err(err) if err.kind() == ErrorKind::NotFound => break Ok(candidate),
+                Err(err) => {
+                    break Err(format!("failed to check existing mods: {err}"));
+                }
+            }
+        }
     }
 
     async fn download_file<F>(
@@ -414,4 +504,35 @@ fn pick_latest_file(details: &CurseForgeMod) -> Option<ModFile> {
         .iter()
         .max_by_key(|f| &f.fileDate)
         .cloned()
+}
+
+fn slugify(name: &str) -> String {
+    let mut slug = String::with_capacity(name.len());
+    let mut last_dash = false;
+    for ch in name.chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch.to_ascii_lowercase());
+            last_dash = false;
+        } else if (ch == '-' || ch == '_' || ch.is_whitespace()) && !last_dash {
+            if !slug.is_empty() {
+                slug.push('-');
+                last_dash = true;
+            }
+        }
+    }
+    let trimmed = slug.trim_matches('-');
+    if trimmed.is_empty() {
+        "mod".into()
+    } else {
+        trimmed.into()
+    }
+}
+
+fn file_version_label(metadata: &std::fs::Metadata) -> String {
+    metadata
+        .modified()
+        .ok()
+        .map(|modified| chrono::DateTime::<Utc>::from(modified))
+        .map(|dt| format!("local {}", dt.format("%Y-%m-%d %H:%M")))
+        .unwrap_or_else(|| "local file".into())
 }

@@ -2,11 +2,14 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use eframe::egui::{
-    self, Align, Color32, FontData, FontDefinitions, FontFamily, Frame, Layout, Margin, RichText,
-    Rounding, Stroke, Vec2, epaint::Shadow,
+    self, Align, Color32, FontData, FontDefinitions, FontFamily, Frame, Layout, Margin, Rect,
+    RichText, Rounding, Stroke, Vec2, epaint::Shadow,
 };
 use log::{error, warn};
 use scraper::{Html, Selector};
@@ -717,7 +720,14 @@ enum ModUpdate {
     Error(String),
     Installed(Vec<InstalledMod>),
     InstalledError(String),
-    Removed { id: String, error: Option<String> },
+    Imported {
+        mods: Vec<InstalledMod>,
+        error: Option<String>,
+    },
+    Removed {
+        id: String,
+        error: Option<String>,
+    },
 }
 
 #[derive(Debug)]
@@ -1084,6 +1094,44 @@ impl LauncherApp {
         });
     }
 
+    fn start_import_mod_files(&mut self, files: Vec<PathBuf>) {
+        if files.is_empty() || self.installed_loading {
+            return;
+        }
+        let unique_files: HashSet<PathBuf> = files.into_iter().collect();
+        if unique_files.is_empty() {
+            return;
+        }
+        self.installed_loading = true;
+        self.installed_error = None;
+        self.removing_mod = None;
+        let tx = self.mod_updates_tx.clone();
+        let engine = self.engine.clone();
+        let rt = self.runtime.clone();
+        rt.spawn(async move {
+            let service = {
+                let locked = engine.lock().await;
+                locked.mods_service()
+            };
+            let mut first_error: Option<String> = None;
+            for path in unique_files {
+                if let Err(err) = service.install_from_path(&path).await {
+                    if first_error.is_none() {
+                        first_error = Some(err);
+                    }
+                }
+            }
+            let update = match service.installed_mods().await {
+                Ok(installed) => ModUpdate::Imported {
+                    mods: installed,
+                    error: first_error,
+                },
+                Err(err) => ModUpdate::InstalledError(err),
+            };
+            let _ = tx.send(update);
+        });
+    }
+
     fn commit_player_name(&mut self) -> String {
         let cleaned = sanitize_player_name(&self.player_name);
         self.player_name = cleaned.clone();
@@ -1199,6 +1247,12 @@ impl LauncherApp {
                 ModUpdate::InstalledError(err) => {
                     self.installed_loading = false;
                     self.installed_error = Some(err);
+                    self.removing_mod = None;
+                }
+                ModUpdate::Imported { mods, error } => {
+                    self.installed_loading = false;
+                    self.installed_mods = mods;
+                    self.installed_error = error;
                     self.removing_mod = None;
                 }
                 ModUpdate::Removed { id, error } => {
@@ -1540,13 +1594,13 @@ impl LauncherApp {
                     | AppState::Uninstalling
                     | AppState::Playing
             );
-            let can_install_mods = game_installed && !mod_actions_locked;
+            let can_install_mods = game_installed && !mod_actions_locked && !self.installed_loading;
             if !game_installed {
                 ui.colored_label(colors.warning, i18n.mods_requires_game());
                 ui.add_space(4.0);
             }
 
-            self.render_installed_mods(ui, colors, i18n, mod_actions_locked);
+            self.render_installed_mods(ui, colors, i18n, mod_actions_locked, can_install_mods);
             ui.separator();
 
             ui.add_space(4.0);
@@ -1809,12 +1863,90 @@ impl LauncherApp {
         });
     }
 
+    fn render_mod_drop_zone(
+        &self,
+        ui: &mut egui::Ui,
+        colors: &ThemePalette,
+        i18n: I18n,
+        can_install_mods: bool,
+    ) -> Rect {
+        let drop_area = ui.allocate_ui(Vec2::new(ui.available_width(), 82.0), |ui| {
+            let rect = ui.max_rect();
+            let hovering = ui.ctx().input(|input| !input.raw.hovered_files.is_empty());
+            let fill = if hovering && can_install_mods {
+                tint(colors.accent, 28)
+            } else {
+                tint(colors.surface_elev, 18)
+            };
+            let stroke_color = if can_install_mods && hovering {
+                colors.accent
+            } else if can_install_mods {
+                colors.border_strong
+            } else {
+                colors.border
+            };
+            Frame::none()
+                .fill(fill)
+                .stroke(Stroke::new(1.0, stroke_color))
+                .rounding(Rounding::same(12.0))
+                .show(ui, |ui| {
+                    ui.set_min_height(70.0);
+                    ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                        let primary_color = if can_install_mods {
+                            colors.text_primary
+                        } else {
+                            colors.text_muted
+                        };
+                        ui.label(
+                            RichText::new(if can_install_mods {
+                                i18n.mods_drop_hint()
+                            } else {
+                                i18n.mods_drop_disabled()
+                            })
+                            .color(primary_color)
+                            .strong(),
+                        );
+                        ui.label(
+                            RichText::new(i18n.mods_drop_subtitle())
+                                .color(colors.text_faint)
+                                .small(),
+                        );
+                    });
+                });
+            rect
+        });
+        drop_area.response.rect
+    }
+
+    fn handle_mod_file_drops(&mut self, ctx: &egui::Context, can_install_mods: bool) {
+        let dropped_paths: Vec<PathBuf> = ctx.input(|input| {
+            input
+                .raw
+                .dropped_files
+                .iter()
+                .filter_map(|file| file.path.clone())
+                .collect()
+        });
+
+        if dropped_paths.is_empty() {
+            return;
+        }
+
+        if !can_install_mods {
+            self.installed_error = Some(self.i18n().mods_drop_disabled().to_string());
+            return;
+        }
+
+        self.start_import_mod_files(dropped_paths);
+    }
+
     fn render_installed_mods(
         &mut self,
         ui: &mut egui::Ui,
         colors: &ThemePalette,
         i18n: I18n,
         mod_actions_locked: bool,
+        can_install_mods: bool,
     ) {
         ui.horizontal(|ui| {
             ui.heading(i18n.mods_installed_heading());
@@ -1837,6 +1969,10 @@ impl LauncherApp {
             ui.colored_label(colors.danger, i18n.mods_installed_error(err));
             ui.add_space(4.0);
         }
+
+        self.render_mod_drop_zone(ui, colors, i18n, can_install_mods);
+        self.handle_mod_file_drops(ui.ctx(), can_install_mods);
+        ui.add_space(6.0);
 
         if self.installed_mods.is_empty() && !self.installed_loading {
             ui.label(RichText::new(i18n.mods_installed_empty()).color(colors.text_faint));
