@@ -66,6 +66,13 @@ impl I18n {
         )
     }
 
+    pub fn discord_button_label(self) -> &'static str {
+        self.pick(
+            "Join our Discord server",
+            "Долучайтеся до нашого Discord-сервера",
+        )
+    }
+
     pub fn status_label(self) -> &'static str {
         self.pick("Status", "Стан")
     }

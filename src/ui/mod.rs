@@ -1008,10 +1008,14 @@ impl LauncherApp {
         }
     }
 
-    fn render_discord_button(&self, ui: &mut egui::Ui, colors: &ThemePalette) {
+    fn render_discord_button(&self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
         let control_height = 34.0;
         let discord_btn =
-            egui::Button::new(RichText::new("Discord").color(colors.text_primary).strong())
+            egui::Button::new(
+                RichText::new(i18n.discord_button_label())
+                    .color(colors.text_primary)
+                    .strong(),
+            )
                 .fill(colors.accent)
                 .stroke(Stroke::new(1.0, colors.accent_glow))
                 .min_size(Vec2::new(96.0, control_height));
@@ -1772,7 +1776,7 @@ impl eframe::App for LauncherApp {
                     let full_width = ui.available_width();
                     let gutter = 18.0;
                     if full_width <= gutter {
-                        self.render_discord_button(ui, &colors);
+                        self.render_discord_button(ui, &colors, i18n);
                         ui.add_space(12.0);
                         self.render_status(ui, &colors, i18n);
                         ui.add_space(12.0);
@@ -1792,7 +1796,7 @@ impl eframe::App for LauncherApp {
                             Vec2::new(left_width, 0.0),
                             Layout::top_down(Align::LEFT),
                             |ui| {
-                                self.render_discord_button(ui, &colors);
+                                self.render_discord_button(ui, &colors, i18n);
                                 ui.add_space(12.0);
                                 self.render_status(ui, &colors, i18n);
                                 ui.add_space(12.0);
