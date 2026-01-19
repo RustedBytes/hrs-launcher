@@ -26,6 +26,7 @@ const NEWS_MAX_ITEMS: usize = 6;
 const NEWS_PREVIEW_FALLBACK_EN: &str = "Read more on hytale.com.";
 const PLAYER_NAME_FILE: &str = "player_name.txt";
 const DEFAULT_PLAYER_NAME: &str = "Player";
+const DIAGNOSTICS_REPORT_HEIGHT: f32 = 480.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Theme {
@@ -1654,7 +1655,7 @@ impl LauncherApp {
                     .default_open(false)
                     .show(ui, |ui| {
                         egui::ScrollArea::vertical()
-                            .max_height(320.0)
+                            .max_height(DIAGNOSTICS_REPORT_HEIGHT)
                             .show(ui, |ui| {
                                 ui.monospace(diag);
                             });
