@@ -1,14 +1,11 @@
 use serde::Deserialize;
 
 const GITHUB_API_URL: &str = "https://api.github.com/repos/RustedBytes/hrs-launcher/releases/latest";
-const REPO_RELEASES_URL: &str = "https://github.com/RustedBytes/hrs-launcher/releases";
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ReleaseInfo {
     pub tag_name: String,
-    pub name: String,
     pub html_url: String,
-    pub body: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,12 +52,6 @@ pub async fn check_for_updates(current_version: &str) -> Result<UpdateStatus, St
     } else {
         Ok(UpdateStatus::UpToDate)
     }
-}
-
-/// Get the URL to the releases page.
-#[must_use]
-pub fn releases_page_url() -> &'static str {
-    REPO_RELEASES_URL
 }
 
 #[derive(Debug, PartialEq, Eq)]

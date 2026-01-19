@@ -277,10 +277,10 @@ impl LauncherEngine {
 
         let check = self.available_versions().await;
         let mut known_versions = check.available_versions.clone();
-        if let Some(local) = local_version {
-            if !known_versions.contains(&local) {
-                known_versions.push(local);
-            }
+        if let Some(local) = local_version
+            && !known_versions.contains(&local)
+        {
+            known_versions.push(local);
         }
         if !known_versions.is_empty() {
             known_versions.sort_unstable_by(|a, b| b.cmp(a));
