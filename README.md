@@ -81,6 +81,14 @@ ln -s /usr/lib/x86_64-linux-gnu/libzstd.so.1 /home/yehor/.local/share/hrs-launch
 
 - https://github.com/yyyumeniku/HyPrism
 
+## Disclaimer & Legal
+
+HRS Launcher is a third-party, community-driven project.
+
+- We are not affiliated with, endorsed by, or associated with Hypixel Studios or Riot Games.
+- "Hytale" is a trademark of Hypixel Studios.
+- This software is provided "as is" for educational and interoperability purposes. Users are encouraged to support the official developers by purchasing the game.
+
 ## TODO
 
 - [x] Add a button to open Game folder
