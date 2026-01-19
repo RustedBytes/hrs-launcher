@@ -438,4 +438,11 @@ impl I18n {
     pub fn no_news(self) -> &'static str {
         self.pick("No news available.", "Наразі немає новин.")
     }
+
+    pub fn update_available(self, version: &str) -> String {
+        match self.language {
+            Language::English => format!("Update available: {version}"),
+            Language::Ukrainian => format!("Доступне оновлення: {version}"),
+        }
+    }
 }

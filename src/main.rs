@@ -14,6 +14,7 @@ mod process;
 mod pwr;
 mod storage;
 mod ui;
+mod updater;
 mod util;
 
 #[derive(Parser, Debug)]
