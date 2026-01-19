@@ -65,4 +65,5 @@ pub enum UserAction {
     DownloadGame {
         target_version: Option<u32>,
     },
+    OpenGameFolder,
 }

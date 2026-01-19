@@ -1608,6 +1608,21 @@ impl LauncherApp {
                 {
                     self.trigger_action(UserAction::RunDiagnostics);
                 }
+
+                ui.add_space(6.0);
+                let open_enabled = env::game_latest_dir().exists();
+                if ui
+                    .add_enabled(
+                        open_enabled,
+                        egui::Button::new(self.text_open_game_folder_button())
+                            .fill(colors.surface_elev)
+                            .stroke(Stroke::new(1.0, colors.border_strong))
+                            .min_size(Vec2::new(170.0, 32.0)),
+                    )
+                    .clicked()
+                {
+                    self.trigger_action(UserAction::OpenGameFolder);
+                }
             });
         });
 
@@ -2022,6 +2037,13 @@ impl LauncherApp {
         match self.language {
             Language::English => "Run diagnostics",
             Language::Ukrainian => "Запустити діагностику",
+        }
+    }
+
+    fn text_open_game_folder_button(&self) -> &'static str {
+        match self.language {
+            Language::English => "Open game folder",
+            Language::Ukrainian => "Відкрити теку гри",
         }
     }
 

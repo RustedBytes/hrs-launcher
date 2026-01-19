@@ -8,6 +8,7 @@ use tokio::sync::mpsc;
 use crate::diagnostics::Diagnostics;
 use crate::engine::models::LocalState;
 use crate::engine::state::{AppState, UserAction};
+use crate::env;
 use crate::jre::JreManager;
 use crate::mods::ModService;
 use crate::networking::NetworkClient;
@@ -217,6 +218,15 @@ impl LauncherEngine {
                     error!("mod {} download failed: {}", mod_id, self.error_summary());
                 }
             },
+            UserAction::OpenGameFolder => {
+                info!("action: OpenGameFolder");
+                if let Err(err) = self.open_game_folder() {
+                    let err_state = AppState::Error(err);
+                    self.state = err_state.clone();
+                    updates.send(err_state).ok();
+                    error!("open game folder failed: {}", self.error_summary());
+                }
+            }
         }
     }
 
@@ -490,5 +500,14 @@ impl LauncherEngine {
             AppState::ReadyToPlay { version } => version.clone(),
             _ => "-".into(),
         }
+    }
+
+    fn open_game_folder(&self) -> Result<(), String> {
+        let dir = env::game_latest_dir();
+        if !dir.exists() {
+            return Err("Game folder not found. Download the game first.".into());
+        }
+        open::that(&dir).map_err(|err| format!("failed to open game folder: {err}"))?;
+        Ok(())
     }
 }
