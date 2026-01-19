@@ -19,9 +19,9 @@ Check out the latest releases on GitHub: https://github.com/RustedBytes/hrs-laun
 
 ## Screenshots
 
-### Ubuntu (XFCE)
+### Xubuntu
 
-![Ubuntu Screenshot](docs/screenshots/ubuntu-xfce.png)
+![Ubuntu Screenshot](docs/screenshots/xubuntu.png)
 
 ## Building
 
