@@ -8,8 +8,8 @@ use std::{
 };
 
 use eframe::egui::{
-    self, Align, Color32, FontData, FontDefinitions, FontFamily, Frame, Layout, Margin, Rect,
-    RichText, Rounding, Stroke, Vec2, epaint::Shadow,
+    self, Align, Color32, FontData, FontDefinitions, FontFamily, Frame, Layout, Margin, RichText,
+    Rounding, Stroke, Vec2, epaint::Shadow,
 };
 use log::{error, warn};
 use rfd::FileDialog;
@@ -1610,7 +1610,7 @@ impl LauncherApp {
                 ui.add_space(4.0);
             }
 
-            self.render_installed_mods(ui, colors, i18n, mod_actions_locked, can_install_mods);
+            self.render_installed_mods(ui, colors, i18n, mod_actions_locked);
             ui.separator();
 
             ui.add_space(4.0);
@@ -1873,83 +1873,6 @@ impl LauncherApp {
         });
     }
 
-    fn render_mod_drop_zone(
-        &self,
-        ui: &mut egui::Ui,
-        colors: &ThemePalette,
-        i18n: I18n,
-        can_install_mods: bool,
-    ) -> Rect {
-        let drop_area = ui.allocate_ui(Vec2::new(ui.available_width(), 82.0), |ui| {
-            let rect = ui.max_rect();
-            let hovering = ui.ctx().input(|input| !input.raw.hovered_files.is_empty());
-            let fill = if hovering && can_install_mods {
-                tint(colors.accent, 28)
-            } else {
-                tint(colors.surface_elev, 18)
-            };
-            let stroke_color = if can_install_mods && hovering {
-                colors.accent
-            } else if can_install_mods {
-                colors.border_strong
-            } else {
-                colors.border
-            };
-            Frame::none()
-                .fill(fill)
-                .stroke(Stroke::new(1.0, stroke_color))
-                .rounding(Rounding::same(12.0))
-                .show(ui, |ui| {
-                    ui.set_min_height(70.0);
-                    ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                        let primary_color = if can_install_mods {
-                            colors.text_primary
-                        } else {
-                            colors.text_muted
-                        };
-                        ui.label(
-                            RichText::new(if can_install_mods {
-                                i18n.mods_drop_hint()
-                            } else {
-                                i18n.mods_drop_disabled()
-                            })
-                            .color(primary_color)
-                            .strong(),
-                        );
-                        ui.label(
-                            RichText::new(i18n.mods_drop_subtitle())
-                                .color(colors.text_faint)
-                                .small(),
-                        );
-                    });
-                });
-            rect
-        });
-        drop_area.response.rect
-    }
-
-    fn handle_mod_file_drops(&mut self, ctx: &egui::Context, can_install_mods: bool) {
-        let dropped_paths: Vec<PathBuf> = ctx.input(|input| {
-            input
-                .raw
-                .dropped_files
-                .iter()
-                .filter_map(|file| file.path.clone())
-                .collect()
-        });
-
-        if dropped_paths.is_empty() {
-            return;
-        }
-
-        if !can_install_mods {
-            self.installed_error = Some(self.i18n().mods_drop_disabled().to_string());
-            return;
-        }
-
-        self.start_import_mod_files(dropped_paths);
-    }
-
     fn open_mod_file_picker(&mut self, can_install_mods: bool) {
         if !can_install_mods {
             self.installed_error = Some(self.i18n().mods_drop_disabled().to_string());
@@ -1978,7 +1901,6 @@ impl LauncherApp {
         colors: &ThemePalette,
         i18n: I18n,
         mod_actions_locked: bool,
-        can_install_mods: bool,
     ) {
         ui.horizontal(|ui| {
             ui.heading(i18n.mods_installed_heading());
@@ -2002,8 +1924,6 @@ impl LauncherApp {
             ui.add_space(4.0);
         }
 
-        self.render_mod_drop_zone(ui, colors, i18n, can_install_mods);
-        self.handle_mod_file_drops(ui.ctx(), can_install_mods);
         ui.add_space(6.0);
 
         if self.installed_mods.is_empty() && !self.installed_loading {

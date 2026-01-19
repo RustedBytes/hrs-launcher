@@ -731,21 +731,6 @@ impl I18n {
         )
     }
 
-    pub fn mods_drop_hint(self) -> &'static str {
-        self.pick(
-            "Select or drag & drop mod files to install.",
-            "Виберіть або перетягніть файли модів, щоб встановити їх.",
-            "Selecciona o arrastra y suelta archivos de mods para instalarlos.",
-            "Sélectionnez ou glissez-déposez des fichiers de mods pour les installer.",
-            "Wähle oder ziehe Mod-Dateien hierher, um sie zu installieren.",
-            "Selecione ou arraste e solte arquivos de mods para instalá-los.",
-            "选择或拖放模组文件即可安装。",
-            "मोड फ़ाइलें चुनें या खींचकर छोड़ें, इंस्टॉल हो जाएंगी।",
-            "Выберите или перетащите файлы модов, чтобы установить их.",
-            "Mod dosyalarını seçin ya da sürükleyip bırakın ve yükleyin.",
-        )
-    }
-
     pub fn mods_select_files(self) -> &'static str {
         self.pick(
             "Select mod files",
@@ -758,21 +743,6 @@ impl I18n {
             "मोड फ़ाइलें चुनें",
             "Выбрать файлы модов",
             "Mod dosyalarını seç",
-        )
-    }
-
-    pub fn mods_drop_subtitle(self) -> &'static str {
-        self.pick(
-            "Files are copied into your mods folder.",
-            "Файли буде скопійовано до папки модів.",
-            "Los archivos se copiarán a tu carpeta de mods.",
-            "Les fichiers seront copiés dans votre dossier de mods.",
-            "Die Dateien werden in deinen Mods-Ordner kopiert.",
-            "Os arquivos serão copiados para sua pasta de mods.",
-            "文件会复制到你的模组文件夹。",
-            "फ़ाइलें आपके मॉड फ़ोल्डर में कॉपी होंगी।",
-            "Файлы будут скопированы в папку модов.",
-            "Dosyalar modlar klasörüne kopyalanır.",
         )
     }
 
