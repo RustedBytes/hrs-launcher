@@ -567,6 +567,12 @@ pub struct LauncherApp {
     player_name: String,
     player_name_error: Option<String>,
     auth_mode: AuthMode,
+    available_versions: Vec<u32>,
+    selected_version: Option<u32>,
+    version_input: String,
+    version_loading: bool,
+    version_fetch_error: Option<String>,
+    version_input_error: Option<String>,
     diagnostics: Option<String>,
     show_uninstall_confirm: bool,
     mod_query: String,
@@ -579,6 +585,8 @@ pub struct LauncherApp {
     mod_updates_tx: mpsc::UnboundedSender<ModUpdate>,
     news_updates_rx: mpsc::UnboundedReceiver<NewsUpdate>,
     news_updates_tx: mpsc::UnboundedSender<NewsUpdate>,
+    version_updates_rx: mpsc::UnboundedReceiver<VersionUpdate>,
+    version_updates_tx: mpsc::UnboundedSender<VersionUpdate>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -597,6 +605,12 @@ enum ModUpdate {
 #[derive(Debug)]
 enum NewsUpdate {
     Results(Vec<NewsItem>),
+    Error(String),
+}
+
+#[derive(Debug)]
+enum VersionUpdate {
+    Available { versions: Vec<u32>, latest: u32 },
     Error(String),
 }
 
@@ -689,6 +703,7 @@ impl LauncherApp {
         let (tx, rx) = mpsc::unbounded_channel();
         let (mod_tx, mod_rx) = mpsc::unbounded_channel();
         let (news_tx, news_rx) = mpsc::unbounded_channel();
+        let (version_tx, version_rx) = mpsc::unbounded_channel();
 
         let bootstrap_engine = engine.clone();
         let bootstrap_tx = tx.clone();
@@ -713,6 +728,12 @@ impl LauncherApp {
             player_name: load_player_name_from_file(),
             player_name_error: None,
             auth_mode: AuthMode::Offline,
+            available_versions: Vec::new(),
+            selected_version: None,
+            version_input: String::new(),
+            version_loading: false,
+            version_fetch_error: None,
+            version_input_error: None,
             diagnostics: None,
             show_uninstall_confirm: false,
             mod_query: String::new(),
@@ -725,9 +746,12 @@ impl LauncherApp {
             mod_updates_tx: mod_tx,
             news_updates_rx: news_rx,
             news_updates_tx: news_tx,
+            version_updates_rx: version_rx,
+            version_updates_tx: version_tx,
         };
 
         app.start_news_fetch();
+        app.start_version_discovery();
         app
     }
 
@@ -809,12 +833,44 @@ impl LauncherApp {
         });
     }
 
+    fn start_version_discovery(&mut self) {
+        if self.version_loading {
+            return;
+        }
+        self.version_loading = true;
+        self.version_fetch_error = None;
+        let tx = self.version_updates_tx.clone();
+        let engine = self.engine.clone();
+        let rt = self.runtime.clone();
+        rt.spawn(async move {
+            let storage = {
+                let locked = engine.lock().await;
+                locked.storage_clone()
+            };
+            let result = LauncherEngine::available_versions_with_storage(storage).await;
+            if let Some(err) = result.error {
+                let _ = tx.send(VersionUpdate::Error(err));
+            } else {
+                let _ = tx.send(VersionUpdate::Available {
+                    versions: result.available_versions,
+                    latest: result.latest_version,
+                });
+            }
+        });
+    }
+
     fn sync_state(&mut self) {
         while let Ok(state) = self.updates_rx.try_recv() {
             match &state {
                 AppState::DiagnosticsReady { report } => {
                     self.diagnostics = Some(report.clone());
                     self.state = AppState::Idle;
+                }
+                AppState::ReadyToPlay { version } => {
+                    if let Ok(parsed) = version.parse::<u32>() {
+                        self.set_selected_version(Some(parsed));
+                    }
+                    self.state = state;
                 }
                 _ => {
                     self.state = state;
@@ -861,6 +917,73 @@ impl LauncherApp {
                 NewsUpdate::Error(err) => {
                     self.news_error = Some(err);
                 }
+            }
+        }
+    }
+
+    fn sync_version_updates(&mut self) {
+        while let Ok(update) = self.version_updates_rx.try_recv() {
+            self.version_loading = false;
+            match update {
+                VersionUpdate::Available { versions, latest } => {
+                    let mut deduped = versions;
+                    deduped.sort_unstable_by(|a, b| b.cmp(a));
+                    deduped.dedup();
+                    self.available_versions = deduped;
+                    self.version_fetch_error = None;
+
+                    if self.selected_version.is_none() {
+                        let candidate = self
+                            .current_ready_version()
+                            .or_else(|| self.available_versions.first().copied())
+                            .or_else(|| (latest > 0).then_some(latest));
+                        if let Some(version) = candidate {
+                            self.set_selected_version(Some(version));
+                        }
+                    }
+                }
+                VersionUpdate::Error(err) => {
+                    self.version_fetch_error = Some(err);
+                }
+            }
+        }
+    }
+
+    fn current_ready_version(&self) -> Option<u32> {
+        match &self.state {
+            AppState::ReadyToPlay { version } => version.parse::<u32>().ok(),
+            _ => None,
+        }
+    }
+
+    fn set_selected_version(&mut self, version: Option<u32>) {
+        self.selected_version = version;
+        self.version_input = version.map(|v| v.to_string()).unwrap_or_default();
+        self.version_input_error = None;
+    }
+
+    fn sync_version_selection(&mut self, previous: Option<u32>) {
+        if previous != self.selected_version {
+            self.version_input = self
+                .selected_version
+                .map(|v| v.to_string())
+                .unwrap_or_default();
+            self.version_input_error = None;
+        }
+    }
+
+    fn apply_version_input(&mut self) {
+        let trimmed = self.version_input.trim();
+        if trimmed.is_empty() {
+            self.set_selected_version(self.available_versions.first().copied());
+            return;
+        }
+        match trimmed.parse::<u32>() {
+            Ok(value) if value > 0 => {
+                self.set_selected_version(Some(value));
+            }
+            _ => {
+                self.version_input_error = Some(self.text_version_input_error().to_owned());
             }
         }
     }
@@ -1314,6 +1437,88 @@ impl LauncherApp {
                 ui.add_space(8.0);
 
                 ui.horizontal_wrapped(|ui| {
+                    ui.label(RichText::new(self.text_version_label()).color(colors.text_muted));
+                    let latest_label =
+                        self.text_version_latest(self.available_versions.first().copied());
+                    let version_labels: Vec<(u32, String)> = self
+                        .available_versions
+                        .iter()
+                        .map(|version| (*version, self.text_version_value(*version)))
+                        .collect();
+                    let selected_text = self
+                        .selected_version
+                        .map(|version| self.text_version_value(version))
+                        .unwrap_or_else(|| latest_label.clone());
+                    let previous = self.selected_version;
+                    egui::ComboBox::from_id_source("version_combo")
+                        .selected_text(selected_text)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut self.selected_version,
+                                None,
+                                latest_label.clone(),
+                            );
+                            for (version, label) in &version_labels {
+                                ui.selectable_value(
+                                    &mut self.selected_version,
+                                    Some(*version),
+                                    label.clone(),
+                                );
+                            }
+                        });
+                    self.sync_version_selection(previous);
+
+                    if self.version_loading {
+                        ui.add(egui::Spinner::new());
+                    } else if ui
+                        .add(
+                            egui::Button::new(self.text_version_refresh_button())
+                                .fill(colors.surface_elev)
+                                .stroke(Stroke::new(1.0, colors.border_strong))
+                                .min_size(Vec2::new(110.0, 28.0)),
+                        )
+                        .clicked()
+                    {
+                        self.start_version_discovery();
+                    }
+                });
+
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(self.text_version_custom_label()).color(colors.text_muted),
+                    );
+                    let placeholder = self.text_version_input_placeholder();
+                    let resp = ui.add(
+                        egui::TextEdit::singleline(&mut self.version_input)
+                            .hint_text(placeholder)
+                            .desired_width(120.0),
+                    );
+                    if resp.changed() {
+                        self.version_input_error = None;
+                    }
+                    let apply_clicked = ui
+                        .add(
+                            egui::Button::new(self.text_version_apply_button())
+                                .fill(colors.accent_soft)
+                                .stroke(Stroke::new(1.0, colors.accent))
+                                .min_size(Vec2::new(90.0, 28.0)),
+                        )
+                        .clicked();
+                    let enter_pressed =
+                        resp.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                    if apply_clicked || enter_pressed {
+                        self.apply_version_input();
+                    }
+                });
+                if let Some(err) = &self.version_fetch_error {
+                    ui.colored_label(colors.danger, self.text_version_fetch_error(err));
+                }
+                if let Some(err) = &self.version_input_error {
+                    ui.colored_label(colors.danger, err);
+                }
+                ui.add_space(8.0);
+
+                ui.horizontal_wrapped(|ui| {
                     let play_enabled = matches!(self.state, AppState::ReadyToPlay { .. });
                     let is_fetching = matches!(
                         self.state,
@@ -1337,7 +1542,9 @@ impl LauncherApp {
                         .stroke(Stroke::new(1.0, colors.accent))
                         .min_size(Vec2::new(150.0, 34.0));
                     if ui.add_enabled(can_download, download_btn).clicked() {
-                        self.trigger_action(UserAction::DownloadGame);
+                        self.trigger_action(UserAction::DownloadGame {
+                            target_version: self.selected_version,
+                        });
                     }
 
                     let can_check = !is_fetching;
@@ -1346,7 +1553,9 @@ impl LauncherApp {
                         .stroke(Stroke::new(1.0, colors.border_strong))
                         .min_size(Vec2::new(150.0, 34.0));
                     if ui.add_enabled(can_check, check_btn).clicked() {
-                        self.trigger_action(UserAction::CheckForUpdates);
+                        self.trigger_action(UserAction::CheckForUpdates {
+                            target_version: self.selected_version,
+                        });
                     }
 
                     if matches!(self.state, AppState::Downloading { .. })
@@ -1743,6 +1952,71 @@ impl LauncherApp {
         }
     }
 
+    fn text_version_label(&self) -> &'static str {
+        match self.language {
+            Language::English => "Game version",
+            Language::Ukrainian => "Версія гри",
+        }
+    }
+
+    fn text_version_latest(&self, latest: Option<u32>) -> String {
+        match (latest, self.language) {
+            (Some(v), Language::English) => format!("Latest (v{v})"),
+            (Some(v), Language::Ukrainian) => format!("Остання (v{v})"),
+            (None, Language::English) => "Latest".into(),
+            (None, Language::Ukrainian) => "Остання".into(),
+        }
+    }
+
+    fn text_version_value(&self, version: u32) -> String {
+        match self.language {
+            Language::English => format!("v{version}"),
+            Language::Ukrainian => format!("v{version}"),
+        }
+    }
+
+    fn text_version_refresh_button(&self) -> &'static str {
+        match self.language {
+            Language::English => "Refresh list",
+            Language::Ukrainian => "Оновити список",
+        }
+    }
+
+    fn text_version_custom_label(&self) -> &'static str {
+        match self.language {
+            Language::English => "Custom version",
+            Language::Ukrainian => "Своя версія",
+        }
+    }
+
+    fn text_version_input_placeholder(&self) -> &'static str {
+        match self.language {
+            Language::English => "e.g. 3",
+            Language::Ukrainian => "наприклад, 3",
+        }
+    }
+
+    fn text_version_apply_button(&self) -> &'static str {
+        match self.language {
+            Language::English => "Set version",
+            Language::Ukrainian => "Застосувати",
+        }
+    }
+
+    fn text_version_fetch_error(&self, err: &str) -> String {
+        match self.language {
+            Language::English => format!("Version list failed: {err}"),
+            Language::Ukrainian => format!("Не вдалося отримати список версій: {err}"),
+        }
+    }
+
+    fn text_version_input_error(&self) -> &'static str {
+        match self.language {
+            Language::English => "Enter a valid version number.",
+            Language::Ukrainian => "Вкажіть коректний номер версії.",
+        }
+    }
+
     fn text_run_diagnostics_button(&self) -> &'static str {
         match self.language {
             Language::English => "Run diagnostics",
@@ -1911,6 +2185,7 @@ impl eframe::App for LauncherApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
         self.sync_state();
         self.sync_mod_updates();
+        self.sync_version_updates();
         self.sync_news_updates();
         let colors = self.colors();
         apply_theme(ctx, &colors);

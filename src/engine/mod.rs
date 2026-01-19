@@ -67,7 +67,11 @@ impl LauncherEngine {
         let _ = updates.send(state);
     }
 
-    pub async fn bootstrap(&mut self, updates: &mpsc::UnboundedSender<AppState>) {
+    pub async fn bootstrap(
+        &mut self,
+        requested_version: Option<u32>,
+        updates: &mpsc::UnboundedSender<AppState>,
+    ) {
         self.reset_cancel_flag();
         updates.send(AppState::CheckingForUpdates).ok();
         info!("bootstrap: starting update check");
@@ -88,7 +92,7 @@ impl LauncherEngine {
             warn!("bootstrap: cancelled after JRE step");
             return;
         }
-        match self.try_prepare_game(updates).await {
+        match self.try_prepare_game(requested_version, updates).await {
             Ok(version) => {
                 let ready = AppState::ReadyToPlay { version };
                 self.state = ready.clone();
@@ -113,13 +117,23 @@ impl LauncherEngine {
         updates: &mpsc::UnboundedSender<AppState>,
     ) {
         match action {
-            UserAction::CheckForUpdates => {
-                info!("action: CheckForUpdates");
-                self.bootstrap(updates).await;
+            UserAction::CheckForUpdates { target_version } => {
+                info!(
+                    "action: CheckForUpdates (target={})",
+                    target_version
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|| "latest".into())
+                );
+                self.bootstrap(target_version, updates).await;
             }
-            UserAction::DownloadGame => {
-                info!("action: DownloadGame");
-                self.bootstrap(updates).await;
+            UserAction::DownloadGame { target_version } => {
+                info!(
+                    "action: DownloadGame (target={})",
+                    target_version
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|| "latest".into())
+                );
+                self.bootstrap(target_version, updates).await;
             }
             UserAction::ClickPlay {
                 player_name,
@@ -155,7 +169,7 @@ impl LauncherEngine {
                 }
                 AppState::Error(_) => {
                     warn!("action: ClickPlay while in Error; re-running bootstrap");
-                    self.bootstrap(updates).await;
+                    self.bootstrap(None, updates).await;
                 }
                 _ => {}
             },
@@ -206,6 +220,29 @@ impl LauncherEngine {
         }
     }
 
+    pub fn storage_clone(&self) -> StorageManager {
+        self.storage.clone()
+    }
+
+    pub async fn available_versions(&self) -> pwr::VersionCheckResult {
+        Self::available_versions_with_storage(self.storage.clone()).await
+    }
+
+    pub async fn available_versions_with_storage(
+        storage: StorageManager,
+    ) -> pwr::VersionCheckResult {
+        let mut check = pwr::find_latest_version_with_details("release").await;
+        if let Some(local) = storage.read_local_state().await
+            && let Ok(parsed) = local.version.parse::<u32>()
+            && !check.available_versions.contains(&parsed)
+        {
+            check.available_versions.push(parsed);
+            check.available_versions.sort_unstable_by(|a, b| b.cmp(a));
+            check.available_versions.dedup();
+        }
+        check
+    }
+
     #[allow(dead_code)]
     pub async fn run_diagnostics(&self) -> String {
         let diag = Diagnostics::new(env!("CARGO_PKG_VERSION")).run().await;
@@ -214,30 +251,60 @@ impl LauncherEngine {
 
     async fn try_prepare_game(
         &mut self,
+        requested_version: Option<u32>,
         updates: &mpsc::UnboundedSender<AppState>,
     ) -> Result<String, String> {
         if self.cancel_requested() {
             warn!("prepare_game: cancellation requested");
             return Err("Download cancelled".into());
         }
+
         let local_state = self.storage.read_local_state().await;
         let local_version = local_state
             .as_ref()
-            .and_then(|s| s.version.parse::<u32>().ok())
-            .unwrap_or(0);
+            .and_then(|s| s.version.parse::<u32>().ok());
         let client_exists = self.client_path().exists();
-        let check = pwr::find_latest_version_with_details("release").await;
-        if let Some(err) = check.error {
-            if client_exists && local_version > 0 {
+
+        let check = self.available_versions().await;
+        let mut known_versions = check.available_versions.clone();
+        if let Some(local) = local_version {
+            if !known_versions.contains(&local) {
+                known_versions.push(local);
+            }
+        }
+        if !known_versions.is_empty() {
+            known_versions.sort_unstable_by(|a, b| b.cmp(a));
+            known_versions.dedup();
+        }
+
+        if let Some(err) = check.error.clone() {
+            if let Some(target) = requested_version {
+                if client_exists && local_version == Some(target) {
+                    warn!(
+                        "prepare_game: version check failed ({}); using cached version {}",
+                        err, target
+                    );
+                    return Ok(target.to_string());
+                }
+                error!(
+                    "prepare_game: version check failed for requested version {}: {}",
+                    target, err
+                );
+                return Err(err);
+            }
+            if client_exists && local_version.is_some() {
                 warn!(
-                    "prepare_game: version check failed ({}); using cached version {}",
+                    "prepare_game: version check failed ({}); using cached version {:?}",
                     err, local_version
                 );
-                return Ok(local_version.to_string());
+                if let Some(local) = local_version {
+                    return Ok(local.to_string());
+                }
             }
             error!("prepare_game: version check failed: {}", err);
             return Err(err);
         }
+
         let latest = check.latest_version;
         info!(
             "prepare_game: latest version {}, checked URLs={:?}",
@@ -245,14 +312,32 @@ impl LauncherEngine {
         );
 
         debug!(
-            "prepare_game: local version {:?}, client exists={}",
+            "prepare_game: local version {:?}, client exists={}, requested={:?}",
             local_state.as_ref().map(|s| s.version.clone()),
-            client_exists
+            client_exists,
+            requested_version
         );
 
-        if client_exists && local_version == latest {
-            info!("prepare_game: local client up-to-date");
-            return Ok(latest.to_string());
+        let target_version = requested_version
+            .or_else(|| (latest > 0).then_some(latest))
+            .or(local_version)
+            .unwrap_or(0);
+        if target_version == 0 {
+            return Err("No game versions available for this platform".into());
+        }
+        if let Some(max_known) = known_versions.first()
+            && target_version <= *max_known
+            && !known_versions.contains(&target_version)
+        {
+            return Err(format!(
+                "Version {} is not available for this platform",
+                target_version
+            ));
+        }
+
+        if client_exists && local_version == Some(target_version) {
+            info!("prepare_game: version {} already installed", target_version);
+            return Ok(target_version.to_string());
         }
 
         let mut progress_cb = |update: pwr::ProgressUpdate| {
@@ -276,10 +361,11 @@ impl LauncherEngine {
             );
         };
 
+        let baseline_version = if client_exists { local_version } else { None }.unwrap_or(0);
         let pwr_path = pwr::download_pwr(
             "release",
-            local_version,
-            latest,
+            baseline_version,
+            target_version,
             Some(self.cancel_flag.clone()),
             Some(&mut progress_cb),
         )
@@ -290,13 +376,13 @@ impl LauncherEngine {
         }
         pwr::apply_pwr(&pwr_path, Some(&mut progress_cb)).await?;
 
-        let version_str = latest.to_string();
+        let version_str = target_version.to_string();
         self.storage
             .write_local_state(&LocalState {
                 version: version_str.clone(),
             })
             .await?;
-        let _ = pwr::save_local_version(latest);
+        let _ = pwr::save_local_version(target_version);
 
         Ok(version_str)
     }

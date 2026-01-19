@@ -53,12 +53,16 @@ pub enum UserAction {
         auth_mode: AuthMode,
     },
     ClickCancelDownload,
-    CheckForUpdates,
+    CheckForUpdates {
+        target_version: Option<u32>,
+    },
     #[allow(dead_code)]
     DownloadMod {
         mod_id: i32,
     },
     RunDiagnostics,
     UninstallGame,
-    DownloadGame,
+    DownloadGame {
+        target_version: Option<u32>,
+    },
 }

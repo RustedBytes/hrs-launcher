@@ -21,6 +21,7 @@ const PATCH_HOST: &str = "https://game-patches.hytale.com";
 #[derive(Clone, Debug, Default)]
 pub struct VersionCheckResult {
     pub latest_version: u32,
+    pub available_versions: Vec<u32>,
     pub success_url: Option<String>,
     pub checked_urls: Vec<String>,
     pub error: Option<String>,
@@ -59,9 +60,9 @@ pub async fn find_latest_version_with_details(version_type: &str) -> VersionChec
 
     let api_version_type = normalize_version_type(version_type);
     let start_version = if api_version_type == "pre-release" {
-        10
+        30
     } else {
-        5
+        20
     };
 
     let client = match Client::builder().timeout(Duration::from_secs(10)).build() {
@@ -103,11 +104,20 @@ pub async fn find_latest_version_with_details(version_type: &str) -> VersionChec
             result.latest_version = version;
             result.success_url = Some(url);
         }
+        if exists {
+            result.available_versions.push(version);
+        }
     }
     debug!(
         "version probe: latest={} success_url={:?}",
         result.latest_version, result.success_url
     );
+
+    if !result.available_versions.is_empty() {
+        result.available_versions.sort_unstable();
+        result.available_versions.dedup();
+        result.available_versions.sort_unstable_by(|a, b| b.cmp(a));
+    }
 
     if result.latest_version == 0 && result.error.is_none() {
         result.error = Some(if had_request_errors {
