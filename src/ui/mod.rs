@@ -2149,6 +2149,16 @@ impl eframe::App for LauncherApp {
                                             Language::French,
                                             Language::French.display_name(),
                                         );
+                                        ui.selectable_value(
+                                            &mut self.language,
+                                            Language::German,
+                                            Language::German.display_name(),
+                                        );
+                                        ui.selectable_value(
+                                            &mut self.language,
+                                            Language::Portuguese,
+                                            Language::Portuguese.display_name(),
+                                        );
                                     });
                             });
                         },
