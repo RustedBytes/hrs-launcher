@@ -20,6 +20,9 @@ use crate::mods::{CurseForgeMod, ModAuthor};
 use crate::process::ProcessLauncher;
 use crate::storage::StorageManager;
 
+mod i18n;
+use self::i18n::{I18n, Language};
+
 const NEWS_PATH: &str = "assets/news.json";
 const NEWS_URL: &str = "https://hytale.com/news";
 const NEWS_MAX_ITEMS: usize = 6;
@@ -102,15 +105,6 @@ impl ThemePalette {
 }
 
 impl Theme {
-    fn label(self, language: Language) -> &'static str {
-        match (self, language) {
-            (Theme::Dark, Language::English) => "Dark",
-            (Theme::Dark, Language::Ukrainian) => "Темна",
-            (Theme::Light, Language::English) => "Light",
-            (Theme::Light, Language::Ukrainian) => "Світла",
-        }
-    }
-
     const fn palette(self) -> ThemePalette {
         match self {
             Theme::Dark => ThemePalette::dark(),
@@ -148,38 +142,10 @@ fn meta_chip_frame(colors: &ThemePalette) -> Frame {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Language {
-    English,
-    Ukrainian,
-}
-
-impl Language {
-    fn display_name(self) -> &'static str {
-        match self {
-            Language::English => "English",
-            Language::Ukrainian => "Українська",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ModSort {
     Downloads,
     Updated,
     Name,
-}
-
-impl ModSort {
-    fn label(self, language: Language) -> &'static str {
-        match (self, language) {
-            (ModSort::Downloads, Language::English) => "Most downloaded",
-            (ModSort::Downloads, Language::Ukrainian) => "Найбільш завантажувані",
-            (ModSort::Updated, Language::English) => "Recently updated",
-            (ModSort::Updated, Language::Ukrainian) => "Нещодавно оновлені",
-            (ModSort::Name, Language::English) => "Name A-Z",
-            (ModSort::Name, Language::Ukrainian) => "Назва A-Z",
-        }
-    }
 }
 
 fn load_news_from_file() -> Vec<NewsItem> {
@@ -760,6 +726,10 @@ impl LauncherApp {
         self.theme.palette()
     }
 
+    fn i18n(&self) -> I18n {
+        I18n::new(self.language)
+    }
+
     fn trigger_action(&self, action: UserAction) {
         if matches!(action, UserAction::ClickCancelDownload) {
             self.cancel_flag.store(true, Ordering::SeqCst);
@@ -984,7 +954,8 @@ impl LauncherApp {
                 self.set_selected_version(Some(value));
             }
             _ => {
-                self.version_input_error = Some(self.text_version_input_error().to_owned());
+                let i18n = self.i18n();
+                self.version_input_error = Some(i18n.version_input_error().to_owned());
             }
         }
     }
@@ -1006,23 +977,19 @@ impl LauncherApp {
         }
     }
 
-    fn render_status(&self, ui: &mut egui::Ui, colors: &ThemePalette) {
+    fn render_status(&self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
         section_frame(colors).show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(RichText::new(self.text_status_label()).color(colors.text_muted));
+                ui.label(RichText::new(i18n.status_label()).color(colors.text_muted));
                 ui.add_space(6.0);
                 let status_badge = match &self.state {
-                    AppState::ReadyToPlay { .. } => (self.text_status_ready(), colors.accent),
-                    AppState::Playing => (self.text_status_running(), colors.info),
-                    AppState::Error(_) => (self.text_status_attention(), colors.danger),
-                    AppState::Downloading { .. } => {
-                        (self.text_status_downloading(), colors.warning)
-                    }
-                    AppState::Uninstalling => (self.text_status_uninstalling(), colors.danger),
-                    AppState::DiagnosticsRunning => {
-                        (self.text_status_diagnostics(), colors.diagnostic)
-                    }
-                    _ => (self.text_status_working(), colors.text_faint),
+                    AppState::ReadyToPlay { .. } => (i18n.status_ready(), colors.accent),
+                    AppState::Playing => (i18n.status_running(), colors.info),
+                    AppState::Error(_) => (i18n.status_attention(), colors.danger),
+                    AppState::Downloading { .. } => (i18n.status_downloading(), colors.warning),
+                    AppState::Uninstalling => (i18n.status_uninstalling(), colors.danger),
+                    AppState::DiagnosticsRunning => (i18n.status_diagnostics(), colors.diagnostic),
+                    _ => (i18n.status_working(), colors.text_faint),
                 };
                 badge_frame(status_badge.1).show(ui, |ui| {
                     ui.label(RichText::new(status_badge.0).color(status_badge.1).strong());
@@ -1032,66 +999,66 @@ impl LauncherApp {
 
             match &self.state {
                 AppState::CheckingForUpdates => {
-                    ui.label(self.text_checking());
+                    ui.label(i18n.checking());
                 }
                 AppState::Downloading {
                     file,
                     progress,
                     speed,
                 } => {
-                    ui.label(self.text_downloading(file));
+                    ui.label(i18n.downloading(file));
                     ui.add(
                         egui::ProgressBar::new(progress / 100.0)
                             .fill(colors.accent)
                             .rounding(Rounding::same(10.0))
                             .desired_height(22.0)
-                            .text(self.text_progress(*progress, speed)),
+                            .text(i18n.progress(*progress, speed)),
                     );
                 }
                 AppState::Uninstalling => {
                     ui.horizontal(|ui| {
                         ui.add(egui::Spinner::new());
-                        ui.label(self.text_uninstalling());
+                        ui.label(i18n.uninstalling());
                     });
                 }
                 AppState::ReadyToPlay { version } => {
-                    ui.label(RichText::new(self.text_ready(version)).strong());
+                    ui.label(RichText::new(i18n.ready(version)).strong());
                 }
                 AppState::DiagnosticsRunning => {
-                    ui.label(self.text_diagnostics_running());
+                    ui.label(i18n.diagnostics_running());
                 }
                 AppState::DiagnosticsReady { .. } => {
-                    ui.label(self.text_diagnostics_completed());
+                    ui.label(i18n.diagnostics_completed());
                 }
                 AppState::Playing => {
-                    ui.label(self.text_playing());
+                    ui.label(i18n.playing());
                 }
                 AppState::Error(msg) => {
-                    ui.colored_label(colors.danger, self.text_error(msg));
+                    ui.colored_label(colors.danger, i18n.error(msg));
                 }
                 AppState::Initialising => {
-                    ui.label(self.text_initialising());
+                    ui.label(i18n.initialising());
                 }
                 AppState::Idle => {
-                    ui.label(self.text_idle());
+                    ui.label(i18n.idle());
                 }
             }
         });
     }
 
-    fn render_news(&self, ui: &mut egui::Ui, colors: &ThemePalette) {
+    fn render_news(&self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
         section_frame(colors).show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.heading(self.text_news_heading());
+                ui.heading(i18n.news_heading());
                 ui.label(
-                    RichText::new(self.text_news_subheading())
+                    RichText::new(i18n.news_subheading())
                         .color(colors.text_muted)
                         .small(),
                 );
                 if self.news_loading {
                     ui.add(egui::Spinner::new());
                     ui.label(
-                        RichText::new(self.text_news_updating())
+                        RichText::new(i18n.news_updating())
                             .color(colors.text_muted)
                             .small(),
                     );
@@ -1100,11 +1067,11 @@ impl LauncherApp {
             ui.separator();
 
             if let Some(err) = &self.news_error {
-                ui.colored_label(colors.danger, self.text_news_fetch_failed(err));
+                ui.colored_label(colors.danger, i18n.news_fetch_failed(err));
             }
 
             if self.news.is_empty() {
-                ui.label(self.text_no_news());
+                ui.label(i18n.no_news());
                 return;
             }
 
@@ -1113,7 +1080,7 @@ impl LauncherApp {
                     ui.vertical(|ui| {
                         ui.hyperlink_to(RichText::new(&item.title).strong(), &item.url);
                         let preview = if item.preview == NEWS_PREVIEW_FALLBACK_EN {
-                            self.text_news_preview_fallback()
+                            i18n.news_preview_fallback()
                         } else {
                             item.preview.as_str()
                         };
@@ -1124,17 +1091,17 @@ impl LauncherApp {
         });
     }
 
-    fn render_mods(&mut self, ui: &mut egui::Ui, colors: &ThemePalette) {
+    fn render_mods(&mut self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
         section_frame(colors).show(ui, |ui| {
             ui.set_min_height(520.0);
             ui.horizontal(|ui| {
-                ui.heading(self.text_mods_heading());
+                ui.heading(i18n.mods_heading());
                 if self.mod_loading {
                     ui.add(egui::Spinner::new());
-                    ui.label(self.text_mods_searching());
+                    ui.label(i18n.mods_searching());
                 } else if !self.mod_results.is_empty() {
                     ui.label(
-                        RichText::new(self.text_mods_results_count(self.mod_results.len()))
+                        RichText::new(i18n.mods_results_count(self.mod_results.len()))
                             .color(colors.text_muted),
                     );
                 }
@@ -1142,7 +1109,7 @@ impl LauncherApp {
 
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
-                let mods_search_hint = self.text_mods_search_hint();
+                let mods_search_hint = i18n.mods_search_hint();
                 let resp = ui.add(
                     egui::TextEdit::singleline(&mut self.mod_query)
                         .hint_text(mods_search_hint)
@@ -1153,9 +1120,9 @@ impl LauncherApp {
                 }
                 let can_search = !self.mod_query.trim().is_empty() && !self.mod_loading;
                 let search_label = if self.mod_loading {
-                    self.text_mods_searching()
+                    i18n.mods_searching()
                 } else {
-                    self.text_mods_search_button()
+                    i18n.mods_search_button()
                 };
                 let search_clicked = ui
                     .add_enabled(
@@ -1174,7 +1141,7 @@ impl LauncherApp {
                 if ui
                     .add_enabled(
                         can_clear,
-                        egui::Button::new(self.text_mods_clear_button())
+                        egui::Button::new(i18n.mods_clear_button())
                             .fill(colors.surface_elev)
                             .stroke(Stroke::new(1.0, colors.border_strong))
                             .min_size(Vec2::new(80.0, 28.0)),
@@ -1204,29 +1171,29 @@ impl LauncherApp {
             ui.add_space(6.0);
             ui.horizontal_wrapped(|ui| {
                 ui.label(
-                    RichText::new(self.text_mods_sort_label())
+                    RichText::new(i18n.mods_sort_label())
                         .color(colors.text_muted)
                         .small(),
                 );
                 egui::ComboBox::from_id_source("mod_sort")
-                    .selected_text(self.mod_sort.label(self.language))
+                    .selected_text(i18n.mod_sort_label(self.mod_sort))
                     .show_ui(ui, |ui| {
                         for option in [ModSort::Downloads, ModSort::Updated, ModSort::Name] {
                             ui.selectable_value(
                                 &mut self.mod_sort,
                                 option,
-                                option.label(self.language),
+                                i18n.mod_sort_label(option),
                             );
                         }
                     });
 
                 ui.label(
-                    RichText::new(self.text_mods_category_label())
+                    RichText::new(i18n.mods_category_label())
                         .color(colors.text_muted)
                         .small(),
                 );
                 ui.add_enabled_ui(!categories.is_empty(), |ui| {
-                    let all_categories = self.text_mods_all_categories();
+                    let all_categories = i18n.mods_all_categories();
                     let selected = self
                         .mod_category_filter
                         .as_deref()
@@ -1271,7 +1238,7 @@ impl LauncherApp {
             if total_results > 0 {
                 ui.add_space(4.0);
                 ui.label(
-                    RichText::new(self.text_mods_showing(visible_mods.len(), total_results))
+                    RichText::new(i18n.mods_showing(visible_mods.len(), total_results))
                         .color(colors.text_faint)
                         .small(),
                 );
@@ -1280,16 +1247,16 @@ impl LauncherApp {
             ui.add_space(8.0);
 
             if let Some(err) = &self.mod_error {
-                ui.colored_label(colors.danger, self.text_mods_search_failed(err));
+                ui.colored_label(colors.danger, i18n.mods_search_failed(err));
             }
 
             if self.mod_results.is_empty() && !self.mod_loading {
-                ui.label(RichText::new(self.text_mods_none_loaded()).color(colors.text_faint));
+                ui.label(RichText::new(i18n.mods_none_loaded()).color(colors.text_faint));
                 return;
             }
 
             if visible_mods.is_empty() && !self.mod_loading {
-                ui.label(RichText::new(self.text_mods_no_match()).color(colors.text_faint));
+                ui.label(RichText::new(i18n.mods_no_match()).color(colors.text_faint));
                 return;
             }
 
@@ -1310,7 +1277,7 @@ impl LauncherApp {
                                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                         if ui
                                             .add(
-                                                egui::Button::new(self.text_mods_install_button())
+                                                egui::Button::new(i18n.mods_install_button())
                                                     .fill(colors.accent)
                                                     .stroke(Stroke::new(1.0, colors.accent_glow))
                                                     .min_size(Vec2::new(96.0, 30.0)),
@@ -1337,7 +1304,7 @@ impl LauncherApp {
                                     }
                                     chip_frame(colors.info).show(ui, |ui| {
                                         ui.label(
-                                            RichText::new(self.text_mods_downloads(&downloads))
+                                            RichText::new(i18n.mods_downloads(&downloads))
                                                 .color(colors.text_primary)
                                                 .small(),
                                         );
@@ -1345,7 +1312,7 @@ impl LauncherApp {
                                     if let Some(updated) = updated {
                                         meta_chip_frame(colors).show(ui, |ui| {
                                             ui.label(
-                                                RichText::new(self.text_mods_updated(&updated))
+                                                RichText::new(i18n.mods_updated(&updated))
                                                     .color(colors.text_muted)
                                                     .small(),
                                             );
@@ -1354,7 +1321,7 @@ impl LauncherApp {
                                     if let Some(authors) = authors {
                                         meta_chip_frame(colors).show(ui, |ui| {
                                             ui.label(
-                                                RichText::new(self.text_mods_by(&authors))
+                                                RichText::new(i18n.mods_by(&authors))
                                                     .color(colors.text_muted)
                                                     .small(),
                                             );
@@ -1371,12 +1338,12 @@ impl LauncherApp {
         });
     }
 
-    fn render_controls(&mut self, ui: &mut egui::Ui, colors: &ThemePalette) {
+    fn render_controls(&mut self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
         section_frame(colors).show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.heading(self.text_controls_heading());
+                ui.heading(i18n.controls_heading());
                 ui.label(
-                    RichText::new(self.text_controls_subheading())
+                    RichText::new(i18n.controls_subheading())
                         .color(colors.text_muted)
                         .small(),
                 );
@@ -1385,8 +1352,8 @@ impl LauncherApp {
 
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new(self.text_player_name_label()).color(colors.text_muted));
-                    let name_placeholder = self.text_player_name_placeholder();
+                    ui.label(RichText::new(i18n.player_name_label()).color(colors.text_muted));
+                    let name_placeholder = i18n.player_name_placeholder();
                     let resp = ui.add(
                         egui::TextEdit::singleline(&mut self.player_name)
                             .hint_text(name_placeholder)
@@ -1397,7 +1364,7 @@ impl LauncherApp {
                     }
                     let save_clicked = ui
                         .add(
-                            egui::Button::new(self.text_player_name_save_button())
+                            egui::Button::new(i18n.player_name_save_button())
                                 .fill(colors.accent_soft)
                                 .stroke(Stroke::new(1.0, colors.accent))
                                 .min_size(Vec2::new(72.0, 28.0)),
@@ -1410,16 +1377,16 @@ impl LauncherApp {
                     }
                 });
                 if let Some(err) = &self.player_name_error {
-                    ui.colored_label(colors.danger, self.text_player_name_error(err));
+                    ui.colored_label(colors.danger, i18n.player_name_error(err));
                 }
                 ui.add_space(6.0);
 
-                let auth_label = self.text_auth_mode_value(self.auth_mode);
-                let auth_offline_label = self.text_auth_mode_value(AuthMode::Offline);
-                let auth_online_label = self.text_auth_mode_value(AuthMode::Online);
+                let auth_label = i18n.auth_mode_value(self.auth_mode);
+                let auth_offline_label = i18n.auth_mode_value(AuthMode::Offline);
+                let auth_online_label = i18n.auth_mode_value(AuthMode::Online);
 
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new(self.text_auth_mode_label()).color(colors.text_muted));
+                    ui.label(RichText::new(i18n.auth_mode_label()).color(colors.text_muted));
                     egui::ComboBox::from_id_source("auth_mode_combo")
                         .selected_text(auth_label)
                         .show_ui(ui, |ui| {
@@ -1438,17 +1405,17 @@ impl LauncherApp {
                 ui.add_space(8.0);
 
                 ui.horizontal_wrapped(|ui| {
-                    ui.label(RichText::new(self.text_version_label()).color(colors.text_muted));
+                    ui.label(RichText::new(i18n.version_label()).color(colors.text_muted));
                     let latest_label =
-                        self.text_version_latest(self.available_versions.first().copied());
+                        i18n.version_latest(self.available_versions.first().copied());
                     let version_labels: Vec<(u32, String)> = self
                         .available_versions
                         .iter()
-                        .map(|version| (*version, self.text_version_value(*version)))
+                        .map(|version| (*version, i18n.version_value(*version)))
                         .collect();
                     let selected_text = self
                         .selected_version
-                        .map(|version| self.text_version_value(version))
+                        .map(|version| i18n.version_value(version))
                         .unwrap_or_else(|| latest_label.clone());
                     let previous = self.selected_version;
                     egui::ComboBox::from_id_source("version_combo")
@@ -1473,7 +1440,7 @@ impl LauncherApp {
                         ui.add(egui::Spinner::new());
                     } else if ui
                         .add(
-                            egui::Button::new(self.text_version_refresh_button())
+                            egui::Button::new(i18n.version_refresh_button())
                                 .fill(colors.surface_elev)
                                 .stroke(Stroke::new(1.0, colors.border_strong))
                                 .min_size(Vec2::new(110.0, 28.0)),
@@ -1485,10 +1452,8 @@ impl LauncherApp {
                 });
 
                 ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new(self.text_version_custom_label()).color(colors.text_muted),
-                    );
-                    let placeholder = self.text_version_input_placeholder();
+                    ui.label(RichText::new(i18n.version_custom_label()).color(colors.text_muted));
+                    let placeholder = i18n.version_input_placeholder();
                     let resp = ui.add(
                         egui::TextEdit::singleline(&mut self.version_input)
                             .hint_text(placeholder)
@@ -1499,7 +1464,7 @@ impl LauncherApp {
                     }
                     let apply_clicked = ui
                         .add(
-                            egui::Button::new(self.text_version_apply_button())
+                            egui::Button::new(i18n.version_apply_button())
                                 .fill(colors.accent_soft)
                                 .stroke(Stroke::new(1.0, colors.accent))
                                 .min_size(Vec2::new(90.0, 28.0)),
@@ -1512,7 +1477,7 @@ impl LauncherApp {
                     }
                 });
                 if let Some(err) = &self.version_fetch_error {
-                    ui.colored_label(colors.danger, self.text_version_fetch_error(err));
+                    ui.colored_label(colors.danger, i18n.version_fetch_error(err));
                 }
                 if let Some(err) = &self.version_input_error {
                     ui.colored_label(colors.danger, err);
@@ -1525,7 +1490,7 @@ impl LauncherApp {
                         self.state,
                         AppState::Downloading { .. } | AppState::CheckingForUpdates
                     );
-                    let play_btn = egui::Button::new(self.text_play_button())
+                    let play_btn = egui::Button::new(i18n.play_button())
                         .fill(colors.accent)
                         .stroke(Stroke::new(1.5, colors.accent_glow))
                         .min_size(Vec2::new(120.0, 34.0));
@@ -1538,7 +1503,7 @@ impl LauncherApp {
                     }
 
                     let can_download = !is_fetching;
-                    let download_btn = egui::Button::new(self.text_download_button())
+                    let download_btn = egui::Button::new(i18n.download_button())
                         .fill(colors.accent_soft)
                         .stroke(Stroke::new(1.0, colors.accent))
                         .min_size(Vec2::new(150.0, 34.0));
@@ -1549,7 +1514,7 @@ impl LauncherApp {
                     }
 
                     let can_check = !is_fetching;
-                    let check_btn = egui::Button::new(self.text_check_updates_button())
+                    let check_btn = egui::Button::new(i18n.check_updates_button())
                         .fill(colors.surface_elev)
                         .stroke(Stroke::new(1.0, colors.border_strong))
                         .min_size(Vec2::new(150.0, 34.0));
@@ -1562,7 +1527,7 @@ impl LauncherApp {
                     if matches!(self.state, AppState::Downloading { .. })
                         && ui
                             .add(
-                                egui::Button::new(self.text_cancel_button())
+                                egui::Button::new(i18n.cancel_button())
                                     .fill(tint(colors.danger, 40))
                                     .stroke(Stroke::new(1.0, colors.danger))
                                     .min_size(Vec2::new(110.0, 32.0)),
@@ -1586,7 +1551,7 @@ impl LauncherApp {
                 let uninstall_clicked = ui
                     .add_enabled(
                         !is_busy,
-                        egui::Button::new(self.text_uninstall_button())
+                        egui::Button::new(i18n.uninstall_button())
                             .fill(tint(colors.danger, 40))
                             .stroke(Stroke::new(1.0, colors.danger))
                             .min_size(Vec2::new(150.0, 32.0)),
@@ -1599,7 +1564,7 @@ impl LauncherApp {
                 ui.add_space(6.0);
                 if ui
                     .add(
-                        egui::Button::new(self.text_run_diagnostics_button())
+                        egui::Button::new(i18n.run_diagnostics_button())
                             .fill(colors.accent_soft)
                             .stroke(Stroke::new(1.0, colors.accent))
                             .min_size(Vec2::new(150.0, 32.0)),
@@ -1614,7 +1579,7 @@ impl LauncherApp {
                 if ui
                     .add_enabled(
                         open_enabled,
-                        egui::Button::new(self.text_open_game_folder_button())
+                        egui::Button::new(i18n.open_game_folder_button())
                             .fill(colors.surface_elev)
                             .stroke(Stroke::new(1.0, colors.border_strong))
                             .min_size(Vec2::new(170.0, 32.0)),
@@ -1627,17 +1592,17 @@ impl LauncherApp {
         });
 
         if self.show_uninstall_confirm {
-            egui::Window::new(self.text_uninstall_confirm_title())
+            egui::Window::new(i18n.uninstall_confirm_title())
                 .collapsible(false)
                 .resizable(false)
                 .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
                 .show(ui.ctx(), |ui| {
-                    ui.label(self.text_uninstall_confirm_body());
+                    ui.label(i18n.uninstall_confirm_body());
                     ui.add_space(10.0);
                     ui.horizontal(|ui| {
                         if ui
                             .add(
-                                egui::Button::new(self.text_uninstall_confirm_yes())
+                                egui::Button::new(i18n.uninstall_confirm_yes())
                                     .fill(tint(colors.danger, 60))
                                     .stroke(Stroke::new(1.0, colors.danger)),
                             )
@@ -1648,7 +1613,7 @@ impl LauncherApp {
                         }
                         if ui
                             .add(
-                                egui::Button::new(self.text_uninstall_confirm_no())
+                                egui::Button::new(i18n.uninstall_confirm_no())
                                     .fill(colors.surface_elev)
                                     .stroke(Stroke::new(1.0, colors.border_strong)),
                             )
@@ -1661,12 +1626,12 @@ impl LauncherApp {
         }
     }
 
-    fn render_diagnostics(&self, ui: &mut egui::Ui, colors: &ThemePalette) {
+    fn render_diagnostics(&self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
         if let Some(diag) = &self.diagnostics {
             section_frame(colors).show(ui, |ui| {
-                ui.heading(self.text_diagnostics_heading());
+                ui.heading(i18n.diagnostics_heading());
                 ui.add_space(6.0);
-                egui::CollapsingHeader::new(self.text_view_report())
+                egui::CollapsingHeader::new(i18n.view_report())
                     .default_open(false)
                     .show(ui, |ui| {
                         egui::ScrollArea::vertical()
@@ -1676,530 +1641,6 @@ impl LauncherApp {
                             });
                     });
             });
-        }
-    }
-
-    fn text_heading(&self) -> &'static str {
-        match self.language {
-            Language::English => "HRS Launcher",
-            Language::Ukrainian => "Лаунчер HRS",
-        }
-    }
-
-    fn text_tagline(&self) -> &'static str {
-        match self.language {
-            Language::English => "Community launcher for Hytale",
-            Language::Ukrainian => "Спільнотний лаунчер для Hytale",
-        }
-    }
-
-    fn text_status_label(&self) -> &'static str {
-        match self.language {
-            Language::English => "Status",
-            Language::Ukrainian => "Стан",
-        }
-    }
-
-    fn text_status_ready(&self) -> &'static str {
-        match self.language {
-            Language::English => "Ready",
-            Language::Ukrainian => "Готово",
-        }
-    }
-
-    fn text_status_running(&self) -> &'static str {
-        match self.language {
-            Language::English => "Running",
-            Language::Ukrainian => "Запущено",
-        }
-    }
-
-    fn text_status_attention(&self) -> &'static str {
-        match self.language {
-            Language::English => "Attention",
-            Language::Ukrainian => "Увага",
-        }
-    }
-
-    fn text_status_downloading(&self) -> &'static str {
-        match self.language {
-            Language::English => "Downloading",
-            Language::Ukrainian => "Завантаження",
-        }
-    }
-
-    fn text_status_uninstalling(&self) -> &'static str {
-        match self.language {
-            Language::English => "Uninstalling",
-            Language::Ukrainian => "Видалення",
-        }
-    }
-
-    fn text_status_diagnostics(&self) -> &'static str {
-        match self.language {
-            Language::English => "Diagnostics",
-            Language::Ukrainian => "Діагностика",
-        }
-    }
-
-    fn text_status_working(&self) -> &'static str {
-        match self.language {
-            Language::English => "Working",
-            Language::Ukrainian => "Виконується",
-        }
-    }
-
-    fn text_diagnostics_running(&self) -> &'static str {
-        match self.language {
-            Language::English => "Running diagnostics...",
-            Language::Ukrainian => "Виконується діагностика...",
-        }
-    }
-
-    fn text_diagnostics_completed(&self) -> &'static str {
-        match self.language {
-            Language::English => "Diagnostics completed.",
-            Language::Ukrainian => "Діагностику завершено.",
-        }
-    }
-
-    fn text_news_subheading(&self) -> &'static str {
-        match self.language {
-            Language::English => "What's happening in Hytale",
-            Language::Ukrainian => "Що нового в Hytale",
-        }
-    }
-
-    fn text_news_updating(&self) -> &'static str {
-        match self.language {
-            Language::English => "Updating...",
-            Language::Ukrainian => "Оновлення...",
-        }
-    }
-
-    fn text_news_fetch_failed(&self, err: &str) -> String {
-        match self.language {
-            Language::English => format!("News fetch failed: {err}"),
-            Language::Ukrainian => format!("Не вдалося отримати новини: {err}"),
-        }
-    }
-
-    fn text_news_preview_fallback(&self) -> &'static str {
-        match self.language {
-            Language::English => NEWS_PREVIEW_FALLBACK_EN,
-            Language::Ukrainian => "Детальніше на hytale.com.",
-        }
-    }
-
-    fn text_mods_heading(&self) -> &'static str {
-        match self.language {
-            Language::English => "Mods",
-            Language::Ukrainian => "Моди",
-        }
-    }
-
-    fn text_mods_searching(&self) -> &'static str {
-        match self.language {
-            Language::English => "Searching...",
-            Language::Ukrainian => "Пошук...",
-        }
-    }
-
-    fn text_mods_results_count(&self, count: usize) -> String {
-        match self.language {
-            Language::English => format!("{count} results"),
-            Language::Ukrainian => format!("Знайдено {count}"),
-        }
-    }
-
-    fn text_mods_search_hint(&self) -> &'static str {
-        match self.language {
-            Language::English => "Search by name or keyword...",
-            Language::Ukrainian => "Пошук за назвою або ключовим словом...",
-        }
-    }
-
-    fn text_mods_search_button(&self) -> &'static str {
-        match self.language {
-            Language::English => "Search",
-            Language::Ukrainian => "Пошук",
-        }
-    }
-
-    fn text_mods_clear_button(&self) -> &'static str {
-        match self.language {
-            Language::English => "Clear",
-            Language::Ukrainian => "Очистити",
-        }
-    }
-
-    fn text_mods_sort_label(&self) -> &'static str {
-        match self.language {
-            Language::English => "Sort by",
-            Language::Ukrainian => "Сортувати за",
-        }
-    }
-
-    fn text_mods_category_label(&self) -> &'static str {
-        match self.language {
-            Language::English => "Category",
-            Language::Ukrainian => "Категорія",
-        }
-    }
-
-    fn text_mods_all_categories(&self) -> &'static str {
-        match self.language {
-            Language::English => "All categories",
-            Language::Ukrainian => "Усі категорії",
-        }
-    }
-
-    fn text_mods_showing(&self, visible: usize, total: usize) -> String {
-        match self.language {
-            Language::English => format!("Showing {visible} of {total} mods"),
-            Language::Ukrainian => format!("Показано {visible} з {total}"),
-        }
-    }
-
-    fn text_mods_search_failed(&self, err: &str) -> String {
-        match self.language {
-            Language::English => format!("Search failed: {err}"),
-            Language::Ukrainian => format!("Помилка пошуку: {err}"),
-        }
-    }
-
-    fn text_mods_none_loaded(&self) -> &'static str {
-        match self.language {
-            Language::English => "No mods loaded. Try searching by name.",
-            Language::Ukrainian => "Моди не завантажено. Спробуйте пошук за назвою.",
-        }
-    }
-
-    fn text_mods_no_match(&self) -> &'static str {
-        match self.language {
-            Language::English => "No mods match the current filters.",
-            Language::Ukrainian => "Немає модів, що відповідають поточним фільтрам.",
-        }
-    }
-
-    fn text_mods_install_button(&self) -> &'static str {
-        match self.language {
-            Language::English => "Install",
-            Language::Ukrainian => "Встановити",
-        }
-    }
-
-    fn text_mods_downloads(&self, downloads: &str) -> String {
-        match self.language {
-            Language::English => format!("Downloads {downloads}"),
-            Language::Ukrainian => format!("Завантажень {downloads}"),
-        }
-    }
-
-    fn text_mods_updated(&self, updated: &str) -> String {
-        match self.language {
-            Language::English => format!("Updated {updated}"),
-            Language::Ukrainian => format!("Оновлено {updated}"),
-        }
-    }
-
-    fn text_mods_by(&self, authors: &str) -> String {
-        match self.language {
-            Language::English => format!("By {authors}"),
-            Language::Ukrainian => format!("Від {authors}"),
-        }
-    }
-
-    fn text_controls_heading(&self) -> &'static str {
-        match self.language {
-            Language::English => "Launcher controls",
-            Language::Ukrainian => "Керування лаунчером",
-        }
-    }
-
-    fn text_controls_subheading(&self) -> &'static str {
-        match self.language {
-            Language::English => "Manage updates & play",
-            Language::Ukrainian => "Керування оновленнями та запуском",
-        }
-    }
-
-    fn text_player_name_label(&self) -> &'static str {
-        match self.language {
-            Language::English => "Player name",
-            Language::Ukrainian => "Ім'я гравця",
-        }
-    }
-
-    fn text_player_name_placeholder(&self) -> &'static str {
-        match self.language {
-            Language::English => DEFAULT_PLAYER_NAME,
-            Language::Ukrainian => "Гравець",
-        }
-    }
-
-    fn text_player_name_save_button(&self) -> &'static str {
-        match self.language {
-            Language::English => "Save",
-            Language::Ukrainian => "Зберегти",
-        }
-    }
-
-    fn text_player_name_error(&self, err: &str) -> String {
-        match self.language {
-            Language::English => format!("Player name: {err}"),
-            Language::Ukrainian => format!("Ім'я гравця: {err}"),
-        }
-    }
-
-    fn text_auth_mode_label(&self) -> &'static str {
-        match self.language {
-            Language::English => "Auth mode",
-            Language::Ukrainian => "Режим авторизації",
-        }
-    }
-
-    fn text_auth_mode_value(&self, mode: AuthMode) -> &'static str {
-        match (mode, self.language) {
-            (AuthMode::Offline, Language::English) => "Offline",
-            (AuthMode::Offline, Language::Ukrainian) => "Офлайн",
-            (AuthMode::Online, Language::English) => "Online",
-            (AuthMode::Online, Language::Ukrainian) => "Онлайн",
-        }
-    }
-
-    fn text_version_label(&self) -> &'static str {
-        match self.language {
-            Language::English => "Game version",
-            Language::Ukrainian => "Версія гри",
-        }
-    }
-
-    fn text_version_latest(&self, latest: Option<u32>) -> String {
-        match (latest, self.language) {
-            (Some(v), Language::English) => format!("Latest (v{v})"),
-            (Some(v), Language::Ukrainian) => format!("Остання (v{v})"),
-            (None, Language::English) => "Latest".into(),
-            (None, Language::Ukrainian) => "Остання".into(),
-        }
-    }
-
-    fn text_version_value(&self, version: u32) -> String {
-        match self.language {
-            Language::English => format!("v{version}"),
-            Language::Ukrainian => format!("v{version}"),
-        }
-    }
-
-    fn text_version_refresh_button(&self) -> &'static str {
-        match self.language {
-            Language::English => "Refresh list",
-            Language::Ukrainian => "Оновити список",
-        }
-    }
-
-    fn text_version_custom_label(&self) -> &'static str {
-        match self.language {
-            Language::English => "Custom version",
-            Language::Ukrainian => "Своя версія",
-        }
-    }
-
-    fn text_version_input_placeholder(&self) -> &'static str {
-        match self.language {
-            Language::English => "e.g. 3",
-            Language::Ukrainian => "наприклад, 3",
-        }
-    }
-
-    fn text_version_apply_button(&self) -> &'static str {
-        match self.language {
-            Language::English => "Set version",
-            Language::Ukrainian => "Застосувати",
-        }
-    }
-
-    fn text_version_fetch_error(&self, err: &str) -> String {
-        match self.language {
-            Language::English => format!("Version list failed: {err}"),
-            Language::Ukrainian => format!("Не вдалося отримати список версій: {err}"),
-        }
-    }
-
-    fn text_version_input_error(&self) -> &'static str {
-        match self.language {
-            Language::English => "Enter a valid version number.",
-            Language::Ukrainian => "Вкажіть коректний номер версії.",
-        }
-    }
-
-    fn text_run_diagnostics_button(&self) -> &'static str {
-        match self.language {
-            Language::English => "Run diagnostics",
-            Language::Ukrainian => "Запустити діагностику",
-        }
-    }
-
-    fn text_open_game_folder_button(&self) -> &'static str {
-        match self.language {
-            Language::English => "Open game folder",
-            Language::Ukrainian => "Відкрити теку гри",
-        }
-    }
-
-    fn text_diagnostics_heading(&self) -> &'static str {
-        match self.language {
-            Language::English => "Diagnostics",
-            Language::Ukrainian => "Діагностика",
-        }
-    }
-
-    fn text_view_report(&self) -> &'static str {
-        match self.language {
-            Language::English => "View report",
-            Language::Ukrainian => "Переглянути звіт",
-        }
-    }
-
-    fn text_checking(&self) -> &'static str {
-        match self.language {
-            Language::English => "Checking for updates...",
-            Language::Ukrainian => "Перевірка оновлень...",
-        }
-    }
-
-    fn text_downloading(&self, file: &str) -> String {
-        match self.language {
-            Language::English => format!("Downloading {file}"),
-            Language::Ukrainian => format!("Завантаження {file}"),
-        }
-    }
-
-    fn text_uninstalling(&self) -> &'static str {
-        match self.language {
-            Language::English => "Removing game files...",
-            Language::Ukrainian => "Видаляємо файли гри...",
-        }
-    }
-
-    fn text_progress(&self, progress: f32, speed: &str) -> String {
-        match self.language {
-            Language::English => format!("{progress:.0}% ({speed})"),
-            Language::Ukrainian => format!("{progress:.0}% ({speed})"),
-        }
-    }
-
-    fn text_ready(&self, version: &str) -> String {
-        match self.language {
-            Language::English => format!("Ready to play version {version}"),
-            Language::Ukrainian => format!("Готово до запуску версії {version}"),
-        }
-    }
-
-    fn text_playing(&self) -> &'static str {
-        match self.language {
-            Language::English => "Launching Hytale...",
-            Language::Ukrainian => "Запуск Hytale...",
-        }
-    }
-
-    fn text_error(&self, msg: &str) -> String {
-        match self.language {
-            Language::English => format!("Error: {msg}"),
-            Language::Ukrainian => format!("Помилка: {msg}"),
-        }
-    }
-
-    fn text_initialising(&self) -> &'static str {
-        match self.language {
-            Language::English => "Initialising launcher...",
-            Language::Ukrainian => "Ініціалізація лаунчера...",
-        }
-    }
-
-    fn text_idle(&self) -> &'static str {
-        match self.language {
-            Language::English => "Idle. Click Download Game to install or update.",
-            Language::Ukrainian => {
-                "Очікування. Натисніть Завантажити гру, щоб встановити або оновити."
-            }
-        }
-    }
-
-    fn text_play_button(&self) -> &'static str {
-        match self.language {
-            Language::English => "Play",
-            Language::Ukrainian => "Грати",
-        }
-    }
-
-    fn text_download_button(&self) -> &'static str {
-        match self.language {
-            Language::English => "Download Game",
-            Language::Ukrainian => "Завантажити гру",
-        }
-    }
-
-    fn text_check_updates_button(&self) -> &'static str {
-        match self.language {
-            Language::English => "Check for updates",
-            Language::Ukrainian => "Перевірити оновлення",
-        }
-    }
-
-    fn text_cancel_button(&self) -> &'static str {
-        match self.language {
-            Language::English => "Cancel",
-            Language::Ukrainian => "Скасувати",
-        }
-    }
-
-    fn text_uninstall_button(&self) -> &'static str {
-        match self.language {
-            Language::English => "Uninstall game",
-            Language::Ukrainian => "Видалити гру",
-        }
-    }
-
-    fn text_uninstall_confirm_title(&self) -> &'static str {
-        match self.language {
-            Language::English => "Confirm uninstall",
-            Language::Ukrainian => "Підтвердьте видалення",
-        }
-    }
-
-    fn text_uninstall_confirm_body(&self) -> &'static str {
-        match self.language {
-            Language::English => "This will remove the game files and bundled JRE. Are you sure?",
-            Language::Ukrainian => "Це видалить файли гри та вбудовану JRE. Ви впевнені?",
-        }
-    }
-
-    fn text_uninstall_confirm_yes(&self) -> &'static str {
-        match self.language {
-            Language::English => "Yes, uninstall",
-            Language::Ukrainian => "Так, видалити",
-        }
-    }
-
-    fn text_uninstall_confirm_no(&self) -> &'static str {
-        match self.language {
-            Language::English => "Cancel",
-            Language::Ukrainian => "Скасувати",
-        }
-    }
-
-    fn text_news_heading(&self) -> &'static str {
-        match self.language {
-            Language::English => "News",
-            Language::Ukrainian => "Новини",
-        }
-    }
-
-    fn text_no_news(&self) -> &'static str {
-        match self.language {
-            Language::English => "No news available.",
-            Language::Ukrainian => "Наразі немає новин.",
         }
     }
 }
@@ -2212,6 +1653,7 @@ impl eframe::App for LauncherApp {
         self.sync_news_updates();
         let colors = self.colors();
         apply_theme(ctx, &colors);
+        let top_bar_i18n = self.i18n();
 
         egui::TopBottomPanel::top("top_bar")
             .frame(
@@ -2223,8 +1665,8 @@ impl eframe::App for LauncherApp {
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
-                        ui.heading(RichText::new(self.text_heading()).color(colors.accent));
-                        ui.label(RichText::new(self.text_tagline()).color(colors.text_muted));
+                        ui.heading(RichText::new(top_bar_i18n.heading()).color(colors.accent));
+                        ui.label(RichText::new(top_bar_i18n.tagline()).color(colors.text_muted));
                     });
                     ui.allocate_ui_with_layout(
                         ui.available_size_before_wrap(),
@@ -2234,17 +1676,17 @@ impl eframe::App for LauncherApp {
                             ui.scope(|ui| {
                                 ui.set_height(control_height);
                                 egui::ComboBox::from_id_source("theme_combo")
-                                    .selected_text(self.theme.label(self.language))
+                                    .selected_text(top_bar_i18n.theme_label(self.theme))
                                     .show_ui(ui, |ui| {
                                         ui.selectable_value(
                                             &mut self.theme,
                                             Theme::Dark,
-                                            Theme::Dark.label(self.language),
+                                            top_bar_i18n.theme_label(Theme::Dark),
                                         );
                                         ui.selectable_value(
                                             &mut self.theme,
                                             Theme::Light,
-                                            Theme::Light.label(self.language),
+                                            top_bar_i18n.theme_label(Theme::Light),
                                         );
                                     });
                             });
@@ -2270,6 +1712,7 @@ impl eframe::App for LauncherApp {
                 });
             });
 
+        let i18n = self.i18n();
         egui::CentralPanel::default()
             .frame(
                 Frame::none()
@@ -2283,14 +1726,14 @@ impl eframe::App for LauncherApp {
                     if full_width <= gutter {
                         self.render_discord_button(ui, &colors);
                         ui.add_space(12.0);
-                        self.render_status(ui, &colors);
+                        self.render_status(ui, &colors, i18n);
                         ui.add_space(12.0);
-                        self.render_controls(ui, &colors);
+                        self.render_controls(ui, &colors, i18n);
                         ui.add_space(12.0);
-                        self.render_mods(ui, &colors);
+                        self.render_mods(ui, &colors, i18n);
                         ui.add_space(12.0);
-                        self.render_news(ui, &colors);
-                        self.render_diagnostics(ui, &colors);
+                        self.render_news(ui, &colors, i18n);
+                        self.render_diagnostics(ui, &colors, i18n);
                         return;
                     }
 
@@ -2303,11 +1746,11 @@ impl eframe::App for LauncherApp {
                             |ui| {
                                 self.render_discord_button(ui, &colors);
                                 ui.add_space(12.0);
-                                self.render_status(ui, &colors);
+                                self.render_status(ui, &colors, i18n);
                                 ui.add_space(12.0);
-                                self.render_controls(ui, &colors);
+                                self.render_controls(ui, &colors, i18n);
                                 ui.add_space(12.0);
-                                self.render_diagnostics(ui, &colors);
+                                self.render_diagnostics(ui, &colors, i18n);
                             },
                         );
                         ui.add_space(gutter);
@@ -2315,12 +1758,12 @@ impl eframe::App for LauncherApp {
                             Vec2::new(right_width, 0.0),
                             Layout::top_down(Align::LEFT),
                             |ui| {
-                                self.render_mods(ui, &colors);
+                                self.render_mods(ui, &colors, i18n);
                             },
                         );
                     });
                     ui.add_space(14.0);
-                    self.render_news(ui, &colors);
+                    self.render_news(ui, &colors, i18n);
                 });
             });
     }
