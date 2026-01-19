@@ -20,15 +20,15 @@ impl Language {
     pub const fn display_name(self) -> &'static str {
         match self {
             Language::English => "English",
-            Language::Ukrainian => "Українська",
-            Language::Spanish => "Español",
-            Language::French => "Français",
-            Language::German => "Deutsch",
-            Language::Portuguese => "Português",
-            Language::Chinese => "中文",
-            Language::Hindi => "हिन्दी",
-            Language::Russian => "Русский",
-            Language::Turkish => "Türkçe",
+            Language::Ukrainian => "Ukrainian",
+            Language::Spanish => "Spanish",
+            Language::French => "French",
+            Language::German => "German",
+            Language::Portuguese => "Portuguese",
+            Language::Chinese => "Chinese",
+            Language::Hindi => "Hindi",
+            Language::Russian => "Russian",
+            Language::Turkish => "Turkish",
         }
     }
 }

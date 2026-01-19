@@ -5,7 +5,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::{fs, path::Path};
 
 use eframe::egui::{
-    self, Align, Color32, Frame, Layout, Margin, RichText, Rounding, Stroke, Vec2, epaint::Shadow,
+    self, Align, Color32, FontData, FontDefinitions, FontFamily, Frame, Layout, Margin, RichText,
+    Rounding, Stroke, Vec2, epaint::Shadow,
 };
 use log::{error, warn};
 use scraper::{Html, Selector};
@@ -32,6 +33,10 @@ const PLAYER_NAME_FILE: &str = "player_name.txt";
 const SELECTED_VERSION_FILE: &str = "selected_version.txt";
 const DEFAULT_PLAYER_NAME: &str = "Player";
 const DIAGNOSTICS_REPORT_HEIGHT: f32 = 720.0;
+const NOTO_SANS_FONT_ID: &str = "noto_sans_regular";
+const NOTO_SANS_FONT_CN_ID: &str = "noto_sans_sc_regular";
+const NOTO_SANS_REGULAR: &[u8] = include_bytes!("../../NotoSans-Regular.ttf");
+const NOTO_SANS_SC_REGULAR: &[u8] = include_bytes!("../../NotoSansSC-Regular.ttf");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Theme {
@@ -605,6 +610,7 @@ pub struct LauncherApp {
     state: AppState,
     launcher_version: &'static str,
     language: Language,
+    fonts_language: Language,
     theme: Theme,
     news: Vec<NewsItem>,
     news_loading: bool,
@@ -698,6 +704,48 @@ fn elevated_frame(colors: &ThemePalette) -> Frame {
         })
 }
 
+fn setup_custom_fonts(ctx: &egui::Context, language: Language) {
+    let mut fonts = FontDefinitions::default();
+    fonts.font_data.insert(
+        NOTO_SANS_FONT_ID.to_owned(),
+        FontData::from_static(NOTO_SANS_REGULAR),
+    );
+    fonts.font_data.insert(
+        NOTO_SANS_FONT_CN_ID.to_owned(),
+        FontData::from_static(NOTO_SANS_SC_REGULAR),
+    );
+
+    let (primary, fallback) = if language == Language::Chinese {
+        (NOTO_SANS_FONT_CN_ID, NOTO_SANS_FONT_ID)
+    } else {
+        (NOTO_SANS_FONT_ID, NOTO_SANS_FONT_CN_ID)
+    };
+
+    fonts
+        .families
+        .entry(FontFamily::Proportional)
+        .or_default()
+        .insert(0, primary.to_owned());
+    fonts
+        .families
+        .entry(FontFamily::Proportional)
+        .or_default()
+        .push(fallback.to_owned());
+
+    fonts
+        .families
+        .entry(FontFamily::Monospace)
+        .or_default()
+        .insert(0, primary.to_owned());
+    fonts
+        .families
+        .entry(FontFamily::Monospace)
+        .or_default()
+        .push(fallback.to_owned());
+
+    ctx.set_fonts(fonts);
+}
+
 fn apply_theme(ctx: &egui::Context, colors: &ThemePalette) {
     let is_dark = colors == &ThemePalette::dark();
     let mut visuals = if is_dark {
@@ -751,8 +799,15 @@ fn apply_theme(ctx: &egui::Context, colors: &ThemePalette) {
     ctx.set_style(style);
 }
 
+fn refresh_fonts_if_needed(app: &mut LauncherApp, ctx: &egui::Context) {
+    if app.fonts_language != app.language {
+        setup_custom_fonts(ctx, app.language);
+        app.fonts_language = app.language;
+    }
+}
+
 impl LauncherApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let runtime = build_runtime();
 
         let cancel_flag = Arc::new(AtomicBool::new(false));
@@ -780,6 +835,7 @@ impl LauncherApp {
             .map(|version| version.to_string())
             .unwrap_or_default();
         let language = detect_system_language();
+        setup_custom_fonts(&cc.egui_ctx, language);
 
         let mut app = Self {
             runtime,
@@ -790,6 +846,7 @@ impl LauncherApp {
             state: AppState::Initialising,
             launcher_version: env!("CARGO_PKG_VERSION"),
             language,
+            fonts_language: language,
             theme: Theme::Dark,
             news: load_news_from_file(),
             news_loading: false,
@@ -2125,6 +2182,7 @@ impl eframe::App for LauncherApp {
         self.sync_version_updates();
         self.sync_news_updates();
         self.sync_updater_updates();
+        refresh_fonts_if_needed(self, ctx);
         let colors = self.colors();
         apply_theme(ctx, &colors);
         let top_bar_i18n = self.i18n();
