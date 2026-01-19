@@ -5,7 +5,7 @@ use std::{
 
 use crate::env;
 use log::{debug, info, warn};
-use sysinfo::{System, SystemExt};
+use sysinfo::System;
 
 #[derive(Clone, Default)]
 pub struct ProcessLauncher;
@@ -150,15 +150,9 @@ fn compute_java_options() -> Option<String> {
     let mut system = System::new();
     system.refresh_memory();
 
-    let total_kib = system.total_memory();
-    let available_kib = system.available_memory();
-    if total_kib == 0 || available_kib == 0 {
-        return None;
-    }
-
-    let total_bytes = total_kib.saturating_mul(1024);
-    let available_bytes = available_kib.saturating_mul(1024);
-    if total_bytes == 0 {
+    let total_bytes = system.total_memory();
+    let available_bytes = system.available_memory();
+    if total_bytes == 0 || available_bytes == 0 {
         return None;
     }
 

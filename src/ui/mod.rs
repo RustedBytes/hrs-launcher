@@ -8,8 +8,8 @@ use std::{
 };
 
 use eframe::egui::{
-    self, Align, Color32, FontData, FontDefinitions, FontFamily, Frame, Layout, Margin, RichText,
-    Rounding, Stroke, Vec2, epaint::Shadow,
+    self, Align, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, Frame, Layout,
+    Margin, RichText, Stroke, Vec2, epaint::Shadow,
 };
 use log::{error, warn};
 use rfd::FileDialog;
@@ -205,35 +205,35 @@ mod tests {
 }
 
 fn badge_frame(color: Color32) -> Frame {
-    Frame::none()
+    Frame::new()
         .fill(tint(color, 32))
         .stroke(Stroke::new(1.0, color))
-        .rounding(Rounding::same(999.0))
-        .inner_margin(Margin::symmetric(10.0, 4.0))
+        .corner_radius(CornerRadius::same(u8::MAX))
+        .inner_margin(Margin::symmetric(10, 4))
 }
 
 fn chip_frame(color: Color32) -> Frame {
-    Frame::none()
+    Frame::new()
         .fill(tint(color, 24))
         .stroke(Stroke::new(1.0, tint(color, 140)))
-        .rounding(Rounding::same(999.0))
-        .inner_margin(Margin::symmetric(8.0, 3.0))
+        .corner_radius(CornerRadius::same(u8::MAX))
+        .inner_margin(Margin::symmetric(8, 3))
 }
 
 fn meta_chip_frame(colors: &ThemePalette) -> Frame {
-    Frame::none()
+    Frame::new()
         .fill(tint(colors.text_muted, 48))
         .stroke(Stroke::new(1.0, tint(colors.text_muted, 200)))
-        .rounding(Rounding::same(999.0))
-        .inner_margin(Margin::symmetric(8.0, 3.0))
+        .corner_radius(CornerRadius::same(u8::MAX))
+        .inner_margin(Margin::symmetric(8, 3))
 }
 
 fn primary_badge_frame(colors: &ThemePalette) -> Frame {
-    Frame::none()
+    Frame::new()
         .fill(colors.accent_soft)
         .stroke(Stroke::new(1.0, colors.accent))
-        .rounding(Rounding::same(999.0))
-        .inner_margin(Margin::symmetric(10.0, 4.0))
+        .corner_radius(CornerRadius::same(u8::MAX))
+        .inner_margin(Margin::symmetric(10, 4))
 }
 
 fn primary_cta_button(
@@ -749,23 +749,23 @@ enum UpdaterUpdate {
 }
 
 fn section_frame(colors: &ThemePalette) -> Frame {
-    Frame::none()
+    Frame::new()
         .fill(colors.surface)
         .stroke(Stroke::new(1.0, colors.border))
-        .rounding(Rounding::same(14.0))
-        .inner_margin(Margin::same(14.0))
+        .corner_radius(CornerRadius::same(14))
+        .inner_margin(Margin::same(14))
 }
 
 fn elevated_frame(colors: &ThemePalette) -> Frame {
-    Frame::none()
+    Frame::new()
         .fill(colors.surface_elev)
         .stroke(Stroke::new(1.0, colors.border_strong))
-        .rounding(Rounding::same(12.0))
-        .inner_margin(Margin::symmetric(12.0, 10.0))
+        .corner_radius(CornerRadius::same(12))
+        .inner_margin(Margin::symmetric(12, 10))
         .shadow(Shadow {
-            offset: Vec2::new(0.0, 2.0),
-            blur: 10.0,
-            spread: 0.0,
+            offset: [0, 2],
+            blur: 10,
+            spread: 0,
             color: Color32::from_black_alpha(70),
         })
 }
@@ -774,11 +774,11 @@ fn setup_custom_fonts(ctx: &egui::Context, language: Language) {
     let mut fonts = FontDefinitions::default();
     fonts.font_data.insert(
         NOTO_SANS_FONT_ID.to_owned(),
-        FontData::from_static(NOTO_SANS_REGULAR),
+        FontData::from_static(NOTO_SANS_REGULAR).into(),
     );
     fonts.font_data.insert(
         NOTO_SANS_FONT_CN_ID.to_owned(),
-        FontData::from_static(NOTO_SANS_SC_REGULAR),
+        FontData::from_static(NOTO_SANS_SC_REGULAR).into(),
     );
 
     let (primary, fallback) = if language == Language::Chinese {
@@ -823,10 +823,10 @@ fn apply_theme(ctx: &egui::Context, colors: &ThemePalette) {
     visuals.window_fill = visuals.panel_fill;
     visuals.override_text_color = Some(colors.text_primary);
     visuals.hyperlink_color = colors.accent_glow;
-    visuals.widgets.noninteractive.rounding = Rounding::same(10.0);
-    visuals.widgets.inactive.rounding = Rounding::same(10.0);
-    visuals.widgets.hovered.rounding = Rounding::same(10.0);
-    visuals.widgets.active.rounding = Rounding::same(10.0);
+    visuals.widgets.noninteractive.corner_radius = CornerRadius::same(10);
+    visuals.widgets.inactive.corner_radius = CornerRadius::same(10);
+    visuals.widgets.hovered.corner_radius = CornerRadius::same(10);
+    visuals.widgets.active.corner_radius = CornerRadius::same(10);
     visuals.widgets.noninteractive.bg_fill = colors.surface;
     visuals.widgets.inactive.bg_fill = colors.surface;
     visuals.widgets.hovered.bg_fill = colors.accent_glow;
@@ -844,16 +844,16 @@ fn apply_theme(ctx: &egui::Context, colors: &ThemePalette) {
     visuals.faint_bg_color = colors.sunken_surface;
     visuals.extreme_bg_color = tint(colors.sunken_surface, 255);
     visuals.code_bg_color = colors.sunken_surface;
-    visuals.window_rounding = Rounding::same(14.0);
+    visuals.window_corner_radius = CornerRadius::same(14);
     let shadow_color = if is_dark {
         Color32::from_black_alpha(100)
     } else {
         Color32::from_black_alpha(45)
     };
     visuals.window_shadow = Shadow {
-        offset: Vec2::new(0.0, 6.0),
-        blur: 18.0,
-        spread: 0.0,
+        offset: [0, 6],
+        blur: 18,
+        spread: 0,
         color: shadow_color,
     };
     visuals.popup_shadow = visuals.window_shadow;
@@ -1400,11 +1400,9 @@ impl LauncherApp {
             .strong();
         let discord_btn = primary_cta_button(discord_label, colors, 120.0);
         if ui.add(discord_btn).clicked() {
-            ui.output_mut(|o| {
-                o.open_url = Some(egui::output::OpenUrl {
-                    url: "https://discord.gg/2ssYjNRXZ".into(),
-                    new_tab: true,
-                });
+            ui.ctx().open_url(egui::OpenUrl {
+                url: "https://discord.gg/2ssYjNRXZ".into(),
+                new_tab: true,
             });
         }
     }
@@ -1452,7 +1450,7 @@ impl LauncherApp {
                     ui.add(
                         egui::ProgressBar::new(progress / 100.0)
                             .fill(colors.accent)
-                            .rounding(Rounding::same(10.0))
+                            .corner_radius(CornerRadius::same(10))
                             .desired_height(22.0)
                             .text(i18n.progress(*progress, speed)),
                     );
@@ -1596,10 +1594,11 @@ impl LauncherApp {
                 }
                 ui.add_space(8.0);
                 let select_label = i18n.mods_select_files();
-                let select_btn = egui::Button::new(select_label)
-                    .fill(colors.accent)
-                    .stroke(Stroke::new(1.0, colors.accent_glow))
-                    .min_size(Vec2::new(142.0, 30.0));
+                let select_text = RichText::new(select_label)
+                    .color(colors.text_primary)
+                    .strong();
+                let select_btn =
+                    primary_cta_button(select_text, colors, 142.0).min_size(Vec2::new(142.0, 34.0));
                 if ui.add_enabled(can_install_mods, select_btn).clicked() {
                     self.open_mod_file_picker(can_install_mods);
                 }
@@ -1616,10 +1615,9 @@ impl LauncherApp {
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
                 let mods_search_hint = i18n.mods_search_hint();
-                let resp = ui.add(
-                    egui::TextEdit::singleline(&mut self.mod_query)
-                        .hint_text(mods_search_hint)
-                        .desired_width(260.0),
+                let resp = ui.add_sized(
+                    Vec2::new(320.0, 36.0),
+                    egui::TextEdit::singleline(&mut self.mod_query).hint_text(mods_search_hint),
                 );
                 if resp.changed() {
                     self.mod_error = None;
@@ -1681,7 +1679,7 @@ impl LauncherApp {
                         .color(colors.text_muted)
                         .small(),
                 );
-                egui::ComboBox::from_id_source("mod_sort")
+                egui::ComboBox::from_id_salt("mod_sort")
                     .selected_text(i18n.mod_sort_label(self.mod_sort))
                     .show_ui(ui, |ui| {
                         for option in [ModSort::Downloads, ModSort::Updated, ModSort::Name] {
@@ -1705,7 +1703,7 @@ impl LauncherApp {
                         .as_deref()
                         .unwrap_or(all_categories)
                         .to_string();
-                    egui::ComboBox::from_id_source("mod_category")
+                    egui::ComboBox::from_id_salt("mod_category")
                         .selected_text(selected)
                         .show_ui(ui, |ui| {
                             ui.selectable_value(
@@ -1881,7 +1879,7 @@ impl LauncherApp {
 
         let picked = FileDialog::new()
             .set_title(self.i18n().mods_select_files())
-            .add_filter("Zip archives", &["zip"])
+            .add_filter("Mod archives", &["zip", "jar"])
             .pick_files();
 
         let Some(paths) = picked else {
@@ -2015,10 +2013,10 @@ impl LauncherApp {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(i18n.player_name_label()).color(colors.text_muted));
                     let name_placeholder = i18n.player_name_placeholder();
-                    let resp = ui.add(
+                    let resp = ui.add_sized(
+                        Vec2::new(220.0, 36.0),
                         egui::TextEdit::singleline(&mut self.player_name)
-                            .hint_text(name_placeholder)
-                            .desired_width(180.0),
+                            .hint_text(name_placeholder),
                     );
                     if resp.changed() {
                         self.player_name_error = None;
@@ -2048,7 +2046,7 @@ impl LauncherApp {
 
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(i18n.auth_mode_label()).color(colors.text_muted));
-                    egui::ComboBox::from_id_source("auth_mode_combo")
+                    egui::ComboBox::from_id_salt("auth_mode_combo")
                         .selected_text(auth_label)
                         .show_ui(ui, |ui| {
                             ui.selectable_value(
@@ -2079,7 +2077,7 @@ impl LauncherApp {
                         .map(|version| i18n.version_value(version))
                         .unwrap_or_else(|| latest_label.clone());
                     let previous = self.selected_version;
-                    egui::ComboBox::from_id_source("version_combo")
+                    egui::ComboBox::from_id_salt("version_combo")
                         .selected_text(selected_text)
                         .show_ui(ui, |ui| {
                             ui.selectable_value(
@@ -2115,10 +2113,10 @@ impl LauncherApp {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(i18n.version_custom_label()).color(colors.text_muted));
                     let placeholder = i18n.version_input_placeholder();
-                    let resp = ui.add(
+                    let resp = ui.add_sized(
+                        Vec2::new(160.0, 36.0),
                         egui::TextEdit::singleline(&mut self.version_input)
-                            .hint_text(placeholder)
-                            .desired_width(120.0),
+                            .hint_text(placeholder),
                     );
                     if resp.changed() {
                         self.version_input_error = None;
@@ -2356,10 +2354,10 @@ impl eframe::App for LauncherApp {
 
         egui::TopBottomPanel::top("top_bar")
             .frame(
-                Frame::none()
+                Frame::new()
                     .fill(colors.panel)
                     .stroke(Stroke::new(1.0, colors.border))
-                    .inner_margin(Margin::symmetric(16.0, 12.0)),
+                    .inner_margin(Margin::symmetric(16, 12)),
             )
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
@@ -2374,7 +2372,7 @@ impl eframe::App for LauncherApp {
                             let control_height = 34.0;
                             ui.scope(|ui| {
                                 ui.set_height(control_height);
-                                egui::ComboBox::from_id_source("theme_combo")
+                                egui::ComboBox::from_id_salt("theme_combo")
                                     .selected_text(top_bar_i18n.theme_label(self.theme))
                                     .show_ui(ui, |ui| {
                                         ui.selectable_value(
@@ -2392,7 +2390,7 @@ impl eframe::App for LauncherApp {
                             ui.add_space(10.0);
                             ui.scope(|ui| {
                                 ui.set_height(control_height);
-                                egui::ComboBox::from_id_source("language_combo")
+                                egui::ComboBox::from_id_salt("language_combo")
                                     .selected_text(self.language.display_name())
                                     .show_ui(ui, |ui| {
                                         ui.selectable_value(
@@ -2456,10 +2454,10 @@ impl eframe::App for LauncherApp {
 
         egui::TopBottomPanel::bottom("bottom_bar")
             .frame(
-                Frame::none()
+                Frame::new()
                     .fill(colors.panel)
                     .stroke(Stroke::new(1.0, colors.border))
-                    .inner_margin(Margin::symmetric(16.0, 10.0)),
+                    .inner_margin(Margin::symmetric(16, 10)),
             )
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
@@ -2480,11 +2478,9 @@ impl eframe::App for LauncherApp {
                                 .fill(colors.info)
                                 .stroke(Stroke::new(1.0, colors.accent_glow));
                                 if ui.add(update_btn).clicked() {
-                                    ui.output_mut(|o| {
-                                        o.open_url = Some(egui::output::OpenUrl {
-                                            url: url.clone(),
-                                            new_tab: true,
-                                        });
+                                    ui.ctx().open_url(egui::OpenUrl {
+                                        url: url.clone(),
+                                        new_tab: true,
                                     });
                                 }
                             });
@@ -2502,9 +2498,9 @@ impl eframe::App for LauncherApp {
             });
         egui::CentralPanel::default()
             .frame(
-                Frame::none()
+                Frame::new()
                     .fill(colors.bg)
-                    .inner_margin(Margin::symmetric(14.0, 12.0)),
+                    .inner_margin(Margin::symmetric(14, 12)),
             )
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {

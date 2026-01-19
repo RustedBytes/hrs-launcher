@@ -48,7 +48,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "HRS Launcher",
         options,
-        Box::new(|cc| Box::new(ui::LauncherApp::new(cc))),
+        Box::new(|cc| Ok(Box::new(ui::LauncherApp::new(cc)))),
     )
 }
 
