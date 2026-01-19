@@ -562,6 +562,7 @@ pub struct LauncherApp {
     updates_rx: mpsc::UnboundedReceiver<AppState>,
     updates_tx: mpsc::UnboundedSender<AppState>,
     state: AppState,
+    launcher_version: &'static str,
     language: Language,
     theme: Theme,
     news: Vec<NewsItem>,
@@ -727,6 +728,7 @@ impl LauncherApp {
             updates_rx: rx,
             updates_tx: tx,
             state: AppState::Initialising,
+            launcher_version: env!("CARGO_PKG_VERSION"),
             language: Language::English,
             theme: Theme::Dark,
             news: load_news_from_file(),
@@ -768,6 +770,23 @@ impl LauncherApp {
 
     fn i18n(&self) -> I18n {
         I18n::new(self.language)
+    }
+
+    fn game_installed(&self) -> bool {
+        let game_dir = env::game_latest_dir();
+        let client_path = if cfg!(target_os = "windows") {
+            game_dir.join("Client").join("HytaleClient.exe")
+        } else if cfg!(target_os = "macos") {
+            game_dir
+                .join("Client")
+                .join("Hytale.app")
+                .join("Contents")
+                .join("MacOS")
+                .join("HytaleClient")
+        } else {
+            game_dir.join("Client").join("HytaleClient")
+        };
+        client_path.exists() || game_dir.exists()
     }
 
     fn trigger_action(&self, action: UserAction) {
@@ -1010,15 +1029,14 @@ impl LauncherApp {
 
     fn render_discord_button(&self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
         let control_height = 34.0;
-        let discord_btn =
-            egui::Button::new(
-                RichText::new(i18n.discord_button_label())
-                    .color(colors.text_primary)
-                    .strong(),
-            )
-                .fill(colors.accent)
-                .stroke(Stroke::new(1.0, colors.accent_glow))
-                .min_size(Vec2::new(96.0, control_height));
+        let discord_btn = egui::Button::new(
+            RichText::new(i18n.discord_button_label())
+                .color(colors.text_primary)
+                .strong(),
+        )
+        .fill(colors.accent)
+        .stroke(Stroke::new(1.0, colors.accent_glow))
+        .min_size(Vec2::new(96.0, control_height));
         if ui.add(discord_btn).clicked() {
             ui.output_mut(|o| {
                 o.open_url = Some(egui::output::OpenUrl {
@@ -1158,6 +1176,20 @@ impl LauncherApp {
                     );
                 }
             });
+
+            let game_installed = self.game_installed();
+            let mod_actions_locked = matches!(
+                self.state,
+                AppState::Downloading { .. }
+                    | AppState::CheckingForUpdates
+                    | AppState::Uninstalling
+                    | AppState::Playing
+            );
+            let can_install_mods = game_installed && !mod_actions_locked;
+            if !game_installed {
+                ui.colored_label(colors.warning, i18n.mods_requires_game());
+                ui.add_space(4.0);
+            }
 
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
@@ -1328,7 +1360,8 @@ impl LauncherApp {
                                     ui.hyperlink_to(RichText::new(&m.name).strong(), url);
                                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                                         if ui
-                                            .add(
+                                            .add_enabled(
+                                                can_install_mods,
                                                 egui::Button::new(i18n.mods_install_button())
                                                     .fill(colors.accent)
                                                     .stroke(Stroke::new(1.0, colors.accent_glow))
@@ -1742,6 +1775,7 @@ impl eframe::App for LauncherApp {
                                         );
                                     });
                             });
+                            ui.add_space(10.0);
                             ui.scope(|ui| {
                                 ui.set_height(control_height);
                                 egui::ComboBox::from_id_source("language_combo")
@@ -1758,6 +1792,19 @@ impl eframe::App for LauncherApp {
                                             Language::Ukrainian.display_name(),
                                         );
                                     });
+                            });
+                            ui.add_space(10.0);
+                            ui.scope(|ui| {
+                                ui.set_height(control_height);
+                                badge_frame(colors.border_strong).show(ui, |ui| {
+                                    ui.label(
+                                        RichText::new(
+                                            top_bar_i18n.launcher_version(self.launcher_version),
+                                        )
+                                        .color(colors.text_primary)
+                                        .small(),
+                                    );
+                                });
                             });
                         },
                     );

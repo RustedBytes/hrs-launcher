@@ -418,6 +418,9 @@ impl LauncherEngine {
         mod_id: i32,
         updates: &mpsc::UnboundedSender<AppState>,
     ) -> Result<(), String> {
+        if !self.client_path().exists() {
+            return Err("Install the game before installing mods.".into());
+        }
         self.reset_cancel_flag();
         let label = format!("mod-{mod_id}");
         let start = AppState::Downloading {

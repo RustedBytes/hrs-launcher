@@ -66,6 +66,13 @@ impl I18n {
         )
     }
 
+    pub fn launcher_version(self, version: &str) -> String {
+        match self.language {
+            Language::English => format!("Launcher v{version}"),
+            Language::Ukrainian => format!("Версія лаунчера v{version}"),
+        }
+    }
+
     pub fn discord_button_label(self) -> &'static str {
         self.pick(
             "Join our Discord server",
@@ -199,6 +206,13 @@ impl I18n {
         self.pick(
             "No mods match the current filters.",
             "Немає модів, що відповідають поточним фільтрам.",
+        )
+    }
+
+    pub fn mods_requires_game(self) -> &'static str {
+        self.pick(
+            "Install the game to enable mod installs.",
+            "Встановіть гру, щоб увімкнути встановлення модів.",
         )
     }
 
