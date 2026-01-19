@@ -1,0 +1,59 @@
+name: macOS Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Cache cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-target-
+      
+      - name: Build release
+        run: cargo build --release
+      
+      - name: Create archive
+        run: |
+          if [ -f "target/release/hrs-launcher" ]; then
+            cd target/release
+            tar -czf ../../hrs-launcher-macos-${{ github.ref_name }}.tar.gz hrs-launcher
+          else
+            echo "hrs-launcher not found in target/release"
+            exit 1
+          fi
+      
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: hrs-launcher-macos-${{ github.ref_name }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
