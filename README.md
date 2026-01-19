@@ -15,10 +15,7 @@ A community launcher for Hytale with integrated diagnostics and mod downloads.
 
 ## Download
 
-### v0.1.0
-
-- Windows: [hrs-launcher-windows-v0.1.1.zip](https://github.com/RustedBytes/hrs-launcher/releases/download/v0.1.1/hrs-launcher-windows-v0.1.1.zip)
-- Linux: [hrs-launcher-linux-v0.1.1.tar.gz](https://github.com/RustedBytes/hrs-launcher/releases/download/v0.1.1/hrs-launcher-linux-v0.1.1.tar.gz)
+Check out the latest releases on GitHub: https://github.com/RustedBytes/hrs-launcher/releases
 
 ## Screenshots
 
