@@ -9,7 +9,7 @@ A community launcher for Hytale with integrated diagnostics and mod downloads.
 - Launch Hytale
 - Integrated diagnostics
 - Multi-platform support (Windows, Linux, macOS)
- - Multi-language support: English, Ukrainian, Spanish, and French
+- Multi-language support: English, Ukrainian, Spanish, French, German, Portuguese, Chinese, Hindi, Russian, Turkish
 - Mod management and downloads
 - JVM options optimized based on system specs
 

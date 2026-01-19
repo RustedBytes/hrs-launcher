@@ -10,6 +10,10 @@ pub enum Language {
     French,
     German,
     Portuguese,
+    Chinese,
+    Hindi,
+    Russian,
+    Turkish,
 }
 
 impl Language {
@@ -21,6 +25,10 @@ impl Language {
             Language::French => "Français",
             Language::German => "Deutsch",
             Language::Portuguese => "Português",
+            Language::Chinese => "中文",
+            Language::Hindi => "हिन्दी",
+            Language::Russian => "Русский",
+            Language::Turkish => "Türkçe",
         }
     }
 }
@@ -44,6 +52,10 @@ impl I18n {
         french: &'a str,
         german: &'a str,
         portuguese: &'a str,
+        chinese: &'a str,
+        hindi: &'a str,
+        russian: &'a str,
+        turkish: &'a str,
     ) -> &'a str {
         match self.language {
             Language::English => english,
@@ -52,6 +64,10 @@ impl I18n {
             Language::French => french,
             Language::German => german,
             Language::Portuguese => portuguese,
+            Language::Chinese => chinese,
+            Language::Hindi => hindi,
+            Language::Russian => russian,
+            Language::Turkish => turkish,
         }
     }
 
@@ -63,12 +79,20 @@ impl I18n {
             (Theme::Dark, Language::French) => "Sombre",
             (Theme::Dark, Language::German) => "Dunkel",
             (Theme::Dark, Language::Portuguese) => "Escuro",
+            (Theme::Dark, Language::Chinese) => "深色",
+            (Theme::Dark, Language::Hindi) => "डार्क",
+            (Theme::Dark, Language::Russian) => "Темная",
+            (Theme::Dark, Language::Turkish) => "Koyu",
             (Theme::Light, Language::English) => "Light",
             (Theme::Light, Language::Ukrainian) => "Світла",
             (Theme::Light, Language::Spanish) => "Claro",
             (Theme::Light, Language::French) => "Clair",
             (Theme::Light, Language::German) => "Hell",
             (Theme::Light, Language::Portuguese) => "Claro",
+            (Theme::Light, Language::Chinese) => "浅色",
+            (Theme::Light, Language::Hindi) => "लाइट",
+            (Theme::Light, Language::Russian) => "Светлая",
+            (Theme::Light, Language::Turkish) => "Açık",
         }
     }
 
@@ -80,18 +104,30 @@ impl I18n {
             (ModSort::Downloads, Language::French) => "Les plus téléchargés",
             (ModSort::Downloads, Language::German) => "Am häufigsten heruntergeladen",
             (ModSort::Downloads, Language::Portuguese) => "Mais baixados",
+            (ModSort::Downloads, Language::Chinese) => "下载最多",
+            (ModSort::Downloads, Language::Hindi) => "सबसे अधिक डाउनलोड",
+            (ModSort::Downloads, Language::Russian) => "Самые скачиваемые",
+            (ModSort::Downloads, Language::Turkish) => "En çok indirilen",
             (ModSort::Updated, Language::English) => "Recently updated",
             (ModSort::Updated, Language::Ukrainian) => "Нещодавно оновлені",
             (ModSort::Updated, Language::Spanish) => "Actualizados recientemente",
             (ModSort::Updated, Language::French) => "Mis à jour récemment",
             (ModSort::Updated, Language::German) => "Kürzlich aktualisiert",
             (ModSort::Updated, Language::Portuguese) => "Atualizados recentemente",
+            (ModSort::Updated, Language::Chinese) => "最近更新",
+            (ModSort::Updated, Language::Hindi) => "हाल ही में अपडेट किए गए",
+            (ModSort::Updated, Language::Russian) => "Недавно обновленные",
+            (ModSort::Updated, Language::Turkish) => "Son güncellenen",
             (ModSort::Name, Language::English) => "Name A-Z",
             (ModSort::Name, Language::Ukrainian) => "Назва A-Z",
             (ModSort::Name, Language::Spanish) => "Nombre A-Z",
             (ModSort::Name, Language::French) => "Nom A-Z",
             (ModSort::Name, Language::German) => "Name A-Z",
             (ModSort::Name, Language::Portuguese) => "Nome A-Z",
+            (ModSort::Name, Language::Chinese) => "名称 A-Z",
+            (ModSort::Name, Language::Hindi) => "नाम A-Z",
+            (ModSort::Name, Language::Russian) => "Имя A-Z",
+            (ModSort::Name, Language::Turkish) => "İsim A-Z",
         }
     }
 
@@ -103,6 +139,10 @@ impl I18n {
             "Lanceur HRS",
             "HRS Launcher",
             "Lançador HRS",
+            "HRS 启动器",
+            "HRS लॉन्चर",
+            "HRS лаунчер",
+            "HRS Başlatıcı",
         )
     }
 
@@ -114,6 +154,10 @@ impl I18n {
             "Lanceur communautaire pour Hytale",
             "Community-Launcher für Hytale",
             "Lançador comunitário para Hytale",
+            "Hytale 的社区启动器",
+            "Hytale के लिए सामुदायिक लॉन्चर",
+            "Сообщественный лаунчер для Hytale",
+            "Hytale için topluluk başlatıcısı",
         )
     }
 
@@ -125,6 +169,10 @@ impl I18n {
             Language::French => format!("Lanceur v{version}"),
             Language::German => format!("Launcher v{version}"),
             Language::Portuguese => format!("Lançador v{version}"),
+            Language::Chinese => format!("启动器 v{version}"),
+            Language::Hindi => format!("लॉन्चर v{version}"),
+            Language::Russian => format!("Лаунчер v{version}"),
+            Language::Turkish => format!("Başlatıcı v{version}"),
         }
     }
 
@@ -136,15 +184,41 @@ impl I18n {
             "Rejoins notre serveur Discord",
             "Tritt unserem Discord-Server bei",
             "Entre no nosso servidor do Discord",
+            "加入我们的 Discord 服务器",
+            "हमारे Discord सर्वर से जुड़ें",
+            "Присоединиться к нашему серверу Discord",
+            "Discord sunucumuza katılın",
         )
     }
 
     pub fn status_label(self) -> &'static str {
-        self.pick("Status", "Стан", "Estado", "Statut", "Status", "Estado")
+        self.pick(
+            "Status",
+            "Стан",
+            "Estado",
+            "Statut",
+            "Status",
+            "Estado",
+            "状态",
+            "स्थिति",
+            "Статус",
+            "Durum",
+        )
     }
 
     pub fn status_ready(self) -> &'static str {
-        self.pick("Ready", "Готово", "Listo", "Prêt", "Bereit", "Pronto")
+        self.pick(
+            "Ready",
+            "Готово",
+            "Listo",
+            "Prêt",
+            "Bereit",
+            "Pronto",
+            "就绪",
+            "तैयार",
+            "Готово",
+            "Hazır",
+        )
     }
 
     pub fn status_running(self) -> &'static str {
@@ -155,6 +229,10 @@ impl I18n {
             "En cours",
             "Läuft",
             "Em execução",
+            "运行中",
+            "चल रहा है",
+            "Выполняется",
+            "Çalışıyor",
         )
     }
 
@@ -166,6 +244,10 @@ impl I18n {
             "Attention",
             "Achtung",
             "Atenção",
+            "注意",
+            "ध्यान",
+            "Внимание",
+            "Dikkat",
         )
     }
 
@@ -177,6 +259,10 @@ impl I18n {
             "Téléchargement",
             "Wird heruntergeladen",
             "Baixando",
+            "下载中",
+            "डाउनलोड हो रहा है",
+            "Загрузка",
+            "İndiriliyor",
         )
     }
 
@@ -188,6 +274,10 @@ impl I18n {
             "Désinstallation",
             "Deinstallieren",
             "Desinstalando",
+            "正在卸载",
+            "अनइंस्टॉल किया जा रहा है",
+            "Удаление",
+            "Kaldırılıyor",
         )
     }
 
@@ -199,6 +289,10 @@ impl I18n {
             "Diagnostics",
             "Diagnose",
             "Diagnósticos",
+            "诊断",
+            "निदान",
+            "Диагностика",
+            "Tanılama",
         )
     }
 
@@ -210,6 +304,10 @@ impl I18n {
             "En cours",
             "In Arbeit",
             "Em progresso",
+            "处理中",
+            "काम चल रहा है",
+            "В работе",
+            "İşleniyor",
         )
     }
 
@@ -221,6 +319,10 @@ impl I18n {
             "Rafraîchir",
             "Aktualisieren",
             "Atualizar",
+            "刷新",
+            "रिफ्रेश",
+            "Обновить",
+            "Yenile",
         )
     }
 
@@ -232,6 +334,10 @@ impl I18n {
             "Exécution des diagnostics...",
             "Diagnose läuft...",
             "Executando diagnósticos...",
+            "正在运行诊断...",
+            "निदान चल रहा है...",
+            "Выполняется диагностика...",
+            "Tanılama çalışıyor...",
         )
     }
 
@@ -243,6 +349,10 @@ impl I18n {
             "Diagnostics terminés.",
             "Diagnose abgeschlossen.",
             "Diagnósticos concluídos.",
+            "诊断完成。",
+            "निदान पूरा हुआ।",
+            "Диагностика завершена.",
+            "Tanılama tamamlandı.",
         )
     }
 
@@ -254,6 +364,10 @@ impl I18n {
             "Aucun rapport de diagnostic disponible pour le moment.",
             "Noch kein Diagnosebericht verfügbar.",
             "Nenhum relatório de diagnóstico disponível ainda.",
+            "尚无可用的诊断报告。",
+            "अभी कोई निदान रिपोर्ट उपलब्ध नहीं है।",
+            "Отчет диагностики пока недоступен.",
+            "Henüz bir tanılama raporu yok.",
         )
     }
 
@@ -265,6 +379,10 @@ impl I18n {
             "Fermer",
             "Schließen",
             "Fechar",
+            "关闭",
+            "बंद करें",
+            "Закрыть",
+            "Kapat",
         )
     }
 
@@ -276,6 +394,10 @@ impl I18n {
             "Ce qui se passe dans Hytale",
             "Was passiert in Hytale",
             "O que está acontecendo em Hytale",
+            "Hytale 发生了什么",
+            "Hytale में क्या हो रहा है",
+            "Что происходит в Hytale",
+            "Hytale'da neler oluyor",
         )
     }
 
@@ -287,6 +409,10 @@ impl I18n {
             "Mise à jour...",
             "Aktualisieren...",
             "Atualizando...",
+            "更新中...",
+            "अपडेट हो रहा है...",
+            "Обновление...",
+            "Güncelleniyor...",
         )
     }
 
@@ -298,6 +424,10 @@ impl I18n {
             Language::French => format!("Échec du chargement des actualités : {err}"),
             Language::German => format!("Nachrichten konnten nicht geladen werden: {err}"),
             Language::Portuguese => format!("Falha ao buscar notícias: {err}"),
+            Language::Chinese => format!("获取新闻失败: {err}"),
+            Language::Hindi => format!("समाचार लाने में विफल: {err}"),
+            Language::Russian => format!("Не удалось получить новости: {err}"),
+            Language::Turkish => format!("Haberler alınamadı: {err}"),
         }
     }
 
@@ -309,11 +439,26 @@ impl I18n {
             "Plus d'informations sur hytale.com.",
             "Mehr auf hytale.com.",
             "Mais informações em hytale.com.",
+            "更多信息请访问 hytale.com。",
+            "अधिक जानकारी hytale.com पर।",
+            "Подробнее на hytale.com.",
+            "Daha fazlası için hytale.com.",
         )
     }
 
     pub fn mods_heading(self) -> &'static str {
-        self.pick("Mods", "Моди", "Mods", "Mods", "Mods", "Mods")
+        self.pick(
+            "Mods",
+            "Моди",
+            "Mods",
+            "Mods",
+            "Mods",
+            "Mods",
+            "模组",
+            "मोड्स",
+            "Моды",
+            "Modlar",
+        )
     }
 
     pub fn mods_searching(self) -> &'static str {
@@ -324,6 +469,10 @@ impl I18n {
             "Recherche en cours...",
             "Suche...",
             "Pesquisando...",
+            "搜索中...",
+            "खोज रहे हैं...",
+            "Поиск...",
+            "Aranıyor...",
         )
     }
 
@@ -335,6 +484,10 @@ impl I18n {
             Language::French => format!("{count} résultats"),
             Language::German => format!("{count} Ergebnisse"),
             Language::Portuguese => format!("{count} resultados"),
+            Language::Chinese => format!("{count} 个结果"),
+            Language::Hindi => format!("{count} परिणाम"),
+            Language::Russian => format!("{count} результатов"),
+            Language::Turkish => format!("{count} sonuç"),
         }
     }
 
@@ -346,6 +499,10 @@ impl I18n {
             "Recherche par nom ou mot-clé...",
             "Suche nach Name oder Stichwort...",
             "Pesquise por nome ou palavra-chave...",
+            "按名称或关键词搜索...",
+            "नाम या कीवर्ड से खोजें...",
+            "Поиск по названию или ключевому слову...",
+            "Ada veya anahtar kelimeye göre arayın...",
         )
     }
 
@@ -357,6 +514,10 @@ impl I18n {
             "Rechercher",
             "Suchen",
             "Pesquisar",
+            "搜索",
+            "खोजें",
+            "Поиск",
+            "Ara",
         )
     }
 
@@ -368,6 +529,10 @@ impl I18n {
             "Effacer",
             "Leeren",
             "Limpar",
+            "清除",
+            "साफ़ करें",
+            "Очистить",
+            "Temizle",
         )
     }
 
@@ -379,6 +544,10 @@ impl I18n {
             "Trier par",
             "Sortieren nach",
             "Ordenar por",
+            "排序方式",
+            "क्रमबद्ध करें",
+            "Сортировать по",
+            "Sırala",
         )
     }
 
@@ -390,6 +559,10 @@ impl I18n {
             "Catégorie",
             "Kategorie",
             "Categoria",
+            "类别",
+            "श्रेणी",
+            "Категория",
+            "Kategori",
         )
     }
 
@@ -401,6 +574,10 @@ impl I18n {
             "Toutes les catégories",
             "Alle Kategorien",
             "Todas as categorias",
+            "所有类别",
+            "सभी श्रेणियाँ",
+            "Все категории",
+            "Tüm kategoriler",
         )
     }
 
@@ -412,6 +589,10 @@ impl I18n {
             Language::French => format!("Affichage de {visible} sur {total} mods"),
             Language::German => format!("Zeige {visible} von {total} Mods"),
             Language::Portuguese => format!("Mostrando {visible} de {total} mods"),
+            Language::Chinese => format!("显示 {visible}/{total} 个模组"),
+            Language::Hindi => format!("{visible}/{total} मॉड दिखा रहे हैं"),
+            Language::Russian => format!("Показано {visible} из {total} модов"),
+            Language::Turkish => format!("{total} modun {visible} tanesi gösteriliyor"),
         }
     }
 
@@ -423,6 +604,10 @@ impl I18n {
             Language::French => format!("Échec de la recherche : {err}"),
             Language::German => format!("Suche fehlgeschlagen: {err}"),
             Language::Portuguese => format!("A pesquisa falhou: {err}"),
+            Language::Chinese => format!("搜索失败: {err}"),
+            Language::Hindi => format!("खोज विफल: {err}"),
+            Language::Russian => format!("Ошибка поиска: {err}"),
+            Language::Turkish => format!("Arama başarısız: {err}"),
         }
     }
 
@@ -434,6 +619,10 @@ impl I18n {
             "Aucun mod chargé. Essayez une recherche par nom.",
             "Keine Mods geladen. Versuche die Suche nach Namen.",
             "Nenhum mod carregado. Tente buscar pelo nome.",
+            "未加载任何模组。尝试按名称搜索。",
+            "कोई मॉड लोड नहीं हुआ। नाम से खोजने का प्रयास करें।",
+            "Моды не загружены. Попробуйте поиск по названию.",
+            "Mod yüklenmedi. İsimle aramayı deneyin.",
         )
     }
 
@@ -445,6 +634,10 @@ impl I18n {
             "Aucun mod ne correspond aux filtres actuels.",
             "Keine Mods entsprechen den aktuellen Filtern.",
             "Nenhum mod corresponde aos filtros atuais.",
+            "没有符合当前筛选的模组。",
+            "वर्तमान फ़िल्टर से कोई मॉड मेल नहीं खाता।",
+            "Нет модов, соответствующих текущим фильтрам.",
+            "Mevcut filtrelere uyan mod yok.",
         )
     }
 
@@ -456,6 +649,10 @@ impl I18n {
             "Mods installés",
             "Installierte Mods",
             "Mods instalados",
+            "已安装的模组",
+            "इंस्टॉल किए गए मॉड्स",
+            "Установленные моды",
+            "Yüklü modlar",
         )
     }
 
@@ -467,6 +664,10 @@ impl I18n {
             "Aucun mod installé pour le moment.",
             "Noch keine Mods installiert.",
             "Ainda não há mods instalados.",
+            "尚未安装任何模组。",
+            "अभी तक कोई मॉड इंस्टॉल नहीं है।",
+            "Моды еще не установлены.",
+            "Henüz mod kurulmadı.",
         )
     }
 
@@ -478,6 +679,10 @@ impl I18n {
             Language::French => format!("Échec du chargement des mods installés : {err}"),
             Language::German => format!("Installierte Mods konnten nicht geladen werden: {err}"),
             Language::Portuguese => format!("Erro ao obter mods instalados: {err}"),
+            Language::Chinese => format!("获取已安装模组失败: {err}"),
+            Language::Hindi => format!("इंस्टॉल किए गए मॉड प्राप्त करने में त्रुटि: {err}"),
+            Language::Russian => format!("Не удалось получить установленные моды: {err}"),
+            Language::Turkish => format!("Yüklü modlar alınamadı: {err}"),
         }
     }
 
@@ -489,6 +694,10 @@ impl I18n {
             "Rafraîchir la liste",
             "Installierte aktualisieren",
             "Atualizar instalados",
+            "刷新已安装",
+            "इंस्टॉल किए गए को रिफ्रेश करें",
+            "Обновить список",
+            "Yüklüleri yenile",
         )
     }
 
@@ -500,6 +709,10 @@ impl I18n {
             "Supprimer",
             "Entfernen",
             "Remover",
+            "移除",
+            "हटाएं",
+            "Удалить",
+            "Kaldır",
         )
     }
 
@@ -511,6 +724,10 @@ impl I18n {
             "Installez le jeu pour activer l'installation des mods.",
             "Installiere das Spiel, um Mod-Installationen zu aktivieren.",
             "Instale o jogo para habilitar a instalação de mods.",
+            "安装游戏以启用模组安装。",
+            "मोड इंस्टॉल के लिए गेम इंस्टॉल करें।",
+            "Установите игру, чтобы включить установку модов.",
+            "Mod kurulumu için önce oyunu yükleyin.",
         )
     }
 
@@ -522,6 +739,10 @@ impl I18n {
             "Installer",
             "Installieren",
             "Instalar",
+            "安装",
+            "इंस्टॉल करें",
+            "Установить",
+            "Yükle",
         )
     }
 
@@ -533,6 +754,10 @@ impl I18n {
             Language::French => format!("Téléchargements {downloads}"),
             Language::German => format!("Downloads {downloads}"),
             Language::Portuguese => format!("Downloads {downloads}"),
+            Language::Chinese => format!("下载 {downloads}"),
+            Language::Hindi => format!("डाउनलोड {downloads}"),
+            Language::Russian => format!("Загрузки {downloads}"),
+            Language::Turkish => format!("İndirme {downloads}"),
         }
     }
 
@@ -544,6 +769,10 @@ impl I18n {
             Language::French => format!("Mis à jour {updated}"),
             Language::German => format!("Aktualisiert {updated}"),
             Language::Portuguese => format!("Atualizado {updated}"),
+            Language::Chinese => format!("更新于 {updated}"),
+            Language::Hindi => format!("{updated} को अपडेट किया गया"),
+            Language::Russian => format!("Обновлено {updated}"),
+            Language::Turkish => format!("{updated} güncellendi"),
         }
     }
 
@@ -555,6 +784,10 @@ impl I18n {
             Language::French => format!("Par {authors}"),
             Language::German => format!("Von {authors}"),
             Language::Portuguese => format!("Por {authors}"),
+            Language::Chinese => format!("作者 {authors}"),
+            Language::Hindi => format!("{authors} द्वारा"),
+            Language::Russian => format!("От {authors}"),
+            Language::Turkish => format!("{authors} tarafından"),
         }
     }
 
@@ -566,6 +799,10 @@ impl I18n {
             "Contrôles du lanceur",
             "Launcher-Steuerung",
             "Controles do lançador",
+            "启动器控制",
+            "लॉन्चर नियंत्रण",
+            "Управление лаунчером",
+            "Başlatıcı kontrolleri",
         )
     }
 
@@ -577,6 +814,10 @@ impl I18n {
             "Gérer les mises à jour et jouer",
             "Updates verwalten & spielen",
             "Gerencie atualizações e jogo",
+            "管理更新并开始游戏",
+            "अपडेट प्रबंधित करें और खेलें",
+            "Управляйте обновлениями и играйте",
+            "Güncellemeleri yönetin ve oynayın",
         )
     }
 
@@ -588,6 +829,10 @@ impl I18n {
             "Nom du joueur",
             "Spielername",
             "Nome do jogador",
+            "玩家名称",
+            "खिलाड़ी का नाम",
+            "Имя игрока",
+            "Oyuncu adı",
         )
     }
 
@@ -599,6 +844,10 @@ impl I18n {
             "Joueur",
             "Spieler",
             "Jogador",
+            "玩家",
+            "खिलाड़ी",
+            "Игрок",
+            "Oyuncu",
         )
     }
 
@@ -610,6 +859,10 @@ impl I18n {
             "Enregistrer",
             "Speichern",
             "Salvar",
+            "保存",
+            "सहेजें",
+            "Сохранить",
+            "Kaydet",
         )
     }
 
@@ -621,6 +874,10 @@ impl I18n {
             Language::French => format!("Nom du joueur : {err}"),
             Language::German => format!("Spielername: {err}"),
             Language::Portuguese => format!("Nome do jogador: {err}"),
+            Language::Chinese => format!("玩家名称: {err}"),
+            Language::Hindi => format!("खिलाड़ी का नाम: {err}"),
+            Language::Russian => format!("Имя игрока: {err}"),
+            Language::Turkish => format!("Oyuncu adı: {err}"),
         }
     }
 
@@ -632,6 +889,10 @@ impl I18n {
             "Mode d'authentification",
             "Auth-Modus",
             "Modo de autenticação",
+            "认证模式",
+            "प्रमाणीकरण मोड",
+            "Режим аутентификации",
+            "Kimlik doğrulama modu",
         )
     }
 
@@ -643,12 +904,20 @@ impl I18n {
             (AuthMode::Offline, Language::French) => "Hors ligne",
             (AuthMode::Offline, Language::German) => "Offline",
             (AuthMode::Offline, Language::Portuguese) => "Offline",
+            (AuthMode::Offline, Language::Chinese) => "离线",
+            (AuthMode::Offline, Language::Hindi) => "ऑफ़लाइन",
+            (AuthMode::Offline, Language::Russian) => "Офлайн",
+            (AuthMode::Offline, Language::Turkish) => "Çevrimdışı",
             (AuthMode::Online, Language::English) => "Online",
             (AuthMode::Online, Language::Ukrainian) => "Онлайн",
             (AuthMode::Online, Language::Spanish) => "En línea",
             (AuthMode::Online, Language::French) => "En ligne",
             (AuthMode::Online, Language::German) => "Online",
             (AuthMode::Online, Language::Portuguese) => "Online",
+            (AuthMode::Online, Language::Chinese) => "在线",
+            (AuthMode::Online, Language::Hindi) => "ऑनलाइन",
+            (AuthMode::Online, Language::Russian) => "Онлайн",
+            (AuthMode::Online, Language::Turkish) => "Çevrimiçi",
         }
     }
 
@@ -660,6 +929,10 @@ impl I18n {
             "Version du jeu",
             "Spielversion",
             "Versão do jogo",
+            "游戏版本",
+            "गेम संस्करण",
+            "Версия игры",
+            "Oyun sürümü",
         )
     }
 
@@ -671,12 +944,20 @@ impl I18n {
             (Some(v), Language::French) => format!("Dernière (v{v})"),
             (Some(v), Language::German) => format!("Neueste (v{v})"),
             (Some(v), Language::Portuguese) => format!("Mais recente (v{v})"),
+            (Some(v), Language::Chinese) => format!("最新 (v{v})"),
+            (Some(v), Language::Hindi) => format!("नवीनतम (v{v})"),
+            (Some(v), Language::Russian) => format!("Последняя (v{v})"),
+            (Some(v), Language::Turkish) => format!("En son (v{v})"),
             (None, Language::English) => "Latest".into(),
             (None, Language::Ukrainian) => "Остання".into(),
             (None, Language::Spanish) => "Última".into(),
             (None, Language::French) => "Dernière".into(),
             (None, Language::German) => "Neueste".into(),
             (None, Language::Portuguese) => "Mais recente".into(),
+            (None, Language::Chinese) => "最新".into(),
+            (None, Language::Hindi) => "नवीनतम".into(),
+            (None, Language::Russian) => "Последняя".into(),
+            (None, Language::Turkish) => "En son".into(),
         }
     }
 
@@ -692,6 +973,10 @@ impl I18n {
             "Rafraîchir la liste",
             "Liste aktualisieren",
             "Atualizar lista",
+            "刷新列表",
+            "सूची रिफ्रेश करें",
+            "Обновить список",
+            "Listeyi yenile",
         )
     }
 
@@ -703,6 +988,10 @@ impl I18n {
             "Version personnalisée",
             "Benutzerdefinierte Version",
             "Versão personalizada",
+            "自定义版本",
+            "कस्टम संस्करण",
+            "Пользовательская версия",
+            "Özel sürüm",
         )
     }
 
@@ -714,6 +1003,10 @@ impl I18n {
             "ex. 3",
             "z. B. 3",
             "ex.: 3",
+            "例如 3",
+            "उदा. 3",
+            "например, 3",
+            "örn. 3",
         )
     }
 
@@ -725,6 +1018,10 @@ impl I18n {
             "Définir la version",
             "Version festlegen",
             "Definir versão",
+            "设置版本",
+            "संस्करण सेट करें",
+            "Установить версию",
+            "Sürümü ayarla",
         )
     }
 
@@ -736,6 +1033,10 @@ impl I18n {
             Language::French => format!("Échec de récupération de la liste des versions : {err}"),
             Language::German => format!("Versionsliste konnte nicht geladen werden: {err}"),
             Language::Portuguese => format!("Falha ao obter a lista de versões: {err}"),
+            Language::Chinese => format!("获取版本列表失败: {err}"),
+            Language::Hindi => format!("संस्करण सूची प्राप्त करने में विफल: {err}"),
+            Language::Russian => format!("Не удалось получить список версий: {err}"),
+            Language::Turkish => format!("Sürüm listesi alınamadı: {err}"),
         }
     }
 
@@ -747,6 +1048,10 @@ impl I18n {
             "Saisissez un numéro de version valide.",
             "Gib eine gültige Versionsnummer ein.",
             "Insira um número de versão válido.",
+            "请输入有效的版本号。",
+            "कृपया एक मान्य संस्करण संख्या दर्ज करें।",
+            "Введите корректный номер версии.",
+            "Geçerli bir sürüm numarası girin.",
         )
     }
 
@@ -758,6 +1063,10 @@ impl I18n {
             "Lancer les diagnostics",
             "Diagnose ausführen",
             "Executar diagnósticos",
+            "运行诊断",
+            "निदान चलाएं",
+            "Запустить диагностику",
+            "Tanılama çalıştır",
         )
     }
 
@@ -769,6 +1078,10 @@ impl I18n {
             "Ouvrir le dossier du jeu",
             "Spieleordner öffnen",
             "Abrir pasta do jogo",
+            "打开游戏文件夹",
+            "गेम फ़ोल्डर खोलें",
+            "Открыть папку игры",
+            "Oyun klasörünü aç",
         )
     }
 
@@ -780,6 +1093,10 @@ impl I18n {
             "Diagnostics",
             "Diagnose",
             "Diagnósticos",
+            "诊断",
+            "निदान",
+            "Диагностика",
+            "Tanılama",
         )
     }
 
@@ -791,6 +1108,10 @@ impl I18n {
             "Voir le rapport",
             "Bericht ansehen",
             "Ver relatório",
+            "查看报告",
+            "रिपोर्ट देखें",
+            "Просмотреть отчет",
+            "Raporu görüntüle",
         )
     }
 
@@ -802,6 +1123,10 @@ impl I18n {
             "Vérification des mises à jour...",
             "Nach Updates suchen...",
             "Procurando atualizações...",
+            "正在检查更新...",
+            "अपडेट की जाँच हो रही है...",
+            "Проверка обновлений...",
+            "Güncellemeler kontrol ediliyor...",
         )
     }
 
@@ -813,6 +1138,10 @@ impl I18n {
             Language::French => format!("Téléchargement de {file}"),
             Language::German => format!("Lade {file} herunter"),
             Language::Portuguese => format!("Baixando {file}"),
+            Language::Chinese => format!("正在下载 {file}"),
+            Language::Hindi => format!("{file} डाउनलोड हो रहा है"),
+            Language::Russian => format!("Загрузка {file}"),
+            Language::Turkish => format!("{file} indiriliyor"),
         }
     }
 
@@ -824,6 +1153,10 @@ impl I18n {
             "Suppression des fichiers du jeu...",
             "Spieldateien werden entfernt...",
             "Removendo arquivos do jogo...",
+            "正在删除游戏文件...",
+            "गेम फ़ाइलें हटाई जा रही हैं...",
+            "Удаляем файлы игры...",
+            "Oyun dosyaları kaldırılıyor...",
         )
     }
 
@@ -839,6 +1172,10 @@ impl I18n {
             Language::French => format!("Prêt à jouer à la version {version}"),
             Language::German => format!("Bereit, Version {version} zu spielen"),
             Language::Portuguese => format!("Pronto para jogar a versão {version}"),
+            Language::Chinese => format!("准备好玩版本 {version}"),
+            Language::Hindi => format!("संस्करण {version} खेलने के लिए तैयार"),
+            Language::Russian => format!("Готово к игре версии {version}"),
+            Language::Turkish => format!("{version} sürümünü oynamaya hazır"),
         }
     }
 
@@ -850,6 +1187,10 @@ impl I18n {
             "Lancement de Hytale...",
             "Starte Hytale...",
             "Iniciando Hytale...",
+            "正在启动 Hytale...",
+            "Hytale शुरू किया जा रहा है...",
+            "Запуск Hytale...",
+            "Hytale başlatılıyor...",
         )
     }
 
@@ -861,6 +1202,10 @@ impl I18n {
             Language::French => format!("Erreur : {msg}"),
             Language::German => format!("Fehler: {msg}"),
             Language::Portuguese => format!("Erro: {msg}"),
+            Language::Chinese => format!("错误: {msg}"),
+            Language::Hindi => format!("त्रुटि: {msg}"),
+            Language::Russian => format!("Ошибка: {msg}"),
+            Language::Turkish => format!("Hata: {msg}"),
         }
     }
 
@@ -872,6 +1217,10 @@ impl I18n {
             "Initialisation du lanceur...",
             "Launcher wird initialisiert...",
             "Inicializando o lançador...",
+            "正在初始化启动器...",
+            "लॉन्चर प्रारंभ किया जा रहा है...",
+            "Инициализация лаунчера...",
+            "Başlatıcı başlatılıyor...",
         )
     }
 
@@ -883,11 +1232,26 @@ impl I18n {
             "En attente. Cliquez sur Télécharger le jeu pour installer ou mettre à jour.",
             "Wartend. Klicke auf Spiel herunterladen, um zu installieren oder zu aktualisieren.",
             "Em espera. Clique em Baixar jogo para instalar ou atualizar.",
+            "空闲。点击“下载游戏”进行安装或更新。",
+            "निष्क्रिय। इंस्टॉल या अपडेट करने के लिए डाउनलोड गेम पर क्लिक करें।",
+            "Ожидание. Нажмите \"Скачать игру\", чтобы установить или обновить.",
+            "Boşta. Yüklemek veya güncellemek için Oyunu İndir'e tıklayın.",
         )
     }
 
     pub fn play_button(self) -> &'static str {
-        self.pick("Play", "Грати", "Jugar", "Jouer", "Spielen", "Jogar")
+        self.pick(
+            "Play",
+            "Грати",
+            "Jugar",
+            "Jouer",
+            "Spielen",
+            "Jogar",
+            "开始游戏",
+            "खेलें",
+            "Играть",
+            "Oyna",
+        )
     }
 
     pub fn download_button(self) -> &'static str {
@@ -898,6 +1262,10 @@ impl I18n {
             "Télécharger le jeu",
             "Spiel herunterladen",
             "Baixar jogo",
+            "下载游戏",
+            "गेम डाउनलोड करें",
+            "Скачать игру",
+            "Oyunu indir",
         )
     }
 
@@ -909,6 +1277,10 @@ impl I18n {
             "Vérifier les mises à jour",
             "Nach Updates suchen",
             "Procurar atualizações",
+            "检查更新",
+            "अपडेट की जाँच करें",
+            "Проверить обновления",
+            "Güncellemeleri kontrol et",
         )
     }
 
@@ -920,6 +1292,10 @@ impl I18n {
             "Annuler",
             "Abbrechen",
             "Cancelar",
+            "取消",
+            "रद्द करें",
+            "Отмена",
+            "İptal",
         )
     }
 
@@ -931,6 +1307,10 @@ impl I18n {
             "Désinstaller le jeu",
             "Spiel deinstallieren",
             "Desinstalar jogo",
+            "卸载游戏",
+            "गेम अनइंस्टॉल करें",
+            "Удалить игру",
+            "Oyunu kaldır",
         )
     }
 
@@ -942,6 +1322,10 @@ impl I18n {
             "Confirmer la désinstallation",
             "Deinstallation bestätigen",
             "Confirmar desinstalação",
+            "确认卸载",
+            "अनइंस्टॉल की पुष्टि करें",
+            "Подтверждение удаления",
+            "Kaldırmayı onayla",
         )
     }
 
@@ -953,6 +1337,10 @@ impl I18n {
             "Cela supprimera les fichiers du jeu et la JRE incluse. Êtes-vous sûr ?",
             "Dies entfernt die Spieldateien und die mitgelieferte JRE. Bist du sicher?",
             "Isso removerá os arquivos do jogo e a JRE incluída. Tem certeza?",
+            "这将删除游戏文件和捆绑的 JRE。确定吗？",
+            "यह गेम फ़ाइलें और बंडल की गई JRE हटा देगा। क्या आप सुनिश्चित हैं?",
+            "Будут удалены файлы игры и встроенная JRE. Вы уверены?",
+            "Bu, oyun dosyalarını ve paketli JRE'yi kaldıracak. Emin misiniz?",
         )
     }
 
@@ -964,6 +1352,10 @@ impl I18n {
             "Oui, désinstaller",
             "Ja, deinstallieren",
             "Sim, desinstalar",
+            "是的，卸载",
+            "हाँ, अनइंस्टॉल करें",
+            "Да, удалить",
+            "Evet, kaldır",
         )
     }
 
@@ -975,6 +1367,10 @@ impl I18n {
             "Annuler",
             "Abbrechen",
             "Cancelar",
+            "取消",
+            "रद्द करें",
+            "Отмена",
+            "İptal",
         )
     }
 
@@ -986,6 +1382,10 @@ impl I18n {
             "Actualités",
             "Neuigkeiten",
             "Notícias",
+            "新闻",
+            "समाचार",
+            "Новости",
+            "Haberler",
         )
     }
 
@@ -997,6 +1397,10 @@ impl I18n {
             "Aucune actualité disponible.",
             "Keine Neuigkeiten verfügbar.",
             "Nenhuma notícia disponível.",
+            "暂无新闻。",
+            "कोई समाचार उपलब्ध नहीं है।",
+            "Новости недоступны.",
+            "Haber yok.",
         )
     }
 
@@ -1008,6 +1412,10 @@ impl I18n {
             Language::French => format!("Mise à jour disponible : {version}"),
             Language::German => format!("Update verfügbar: {version}"),
             Language::Portuguese => format!("Atualização disponível: {version}"),
+            Language::Chinese => format!("有可用更新：{version}"),
+            Language::Hindi => format!("अपडेट उपलब्ध: {version}"),
+            Language::Russian => format!("Доступно обновление: {version}"),
+            Language::Turkish => format!("Güncelleme mevcut: {version}"),
         }
     }
 }

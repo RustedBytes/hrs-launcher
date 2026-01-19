@@ -132,6 +132,10 @@ fn detect_system_language() -> Language {
             .to_ascii_lowercase();
 
         match language_code.as_str() {
+            "zh" => Some(Language::Chinese),
+            "hi" => Some(Language::Hindi),
+            "ru" => Some(Language::Russian),
+            "tr" => Some(Language::Turkish),
             "uk" => Some(Language::Ukrainian),
             "es" => Some(Language::Spanish),
             "fr" => Some(Language::French),
@@ -2195,6 +2199,26 @@ impl eframe::App for LauncherApp {
                                             &mut self.language,
                                             Language::Portuguese,
                                             Language::Portuguese.display_name(),
+                                        );
+                                        ui.selectable_value(
+                                            &mut self.language,
+                                            Language::Chinese,
+                                            Language::Chinese.display_name(),
+                                        );
+                                        ui.selectable_value(
+                                            &mut self.language,
+                                            Language::Hindi,
+                                            Language::Hindi.display_name(),
+                                        );
+                                        ui.selectable_value(
+                                            &mut self.language,
+                                            Language::Russian,
+                                            Language::Russian.display_name(),
+                                        );
+                                        ui.selectable_value(
+                                            &mut self.language,
+                                            Language::Turkish,
+                                            Language::Turkish.display_name(),
                                         );
                                     });
                             });
