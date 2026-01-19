@@ -2139,6 +2139,16 @@ impl eframe::App for LauncherApp {
                                             Language::Ukrainian,
                                             Language::Ukrainian.display_name(),
                                         );
+                                        ui.selectable_value(
+                                            &mut self.language,
+                                            Language::Spanish,
+                                            Language::Spanish.display_name(),
+                                        );
+                                        ui.selectable_value(
+                                            &mut self.language,
+                                            Language::French,
+                                            Language::French.display_name(),
+                                        );
                                     });
                             });
                         },
