@@ -10,6 +10,7 @@ use tokio::io::AsyncWriteExt;
 use zip::read::ZipArchive;
 
 use crate::env;
+use crate::util::{format_speed, progress_percent};
 
 use super::{ProgressCallback, ProgressUpdate};
 
@@ -216,22 +217,5 @@ fn extract_zip(archive_path: &Path, dest: &Path) -> Result<(), String> {
 fn emit_progress(cb: &mut ProgressCallback<'_>, update: ProgressUpdate) {
     if let Some(callback) = cb.as_deref_mut() {
         callback(update);
-    }
-}
-
-fn progress_percent(downloaded: u64, total: Option<u64>) -> f32 {
-    match total {
-        Some(total) if total > 0 => (downloaded as f32 / total as f32) * 100.0,
-        _ => 0.0,
-    }
-}
-
-fn format_speed(bytes_per_sec: f32) -> String {
-    if bytes_per_sec < 1024.0 {
-        format!("{bytes_per_sec:.0} B/s")
-    } else if bytes_per_sec < 1024.0 * 1024.0 {
-        format!("{:.1} KB/s", bytes_per_sec / 1024.0)
-    } else {
-        format!("{:.1} MB/s", bytes_per_sec / 1024.0 / 1024.0)
     }
 }

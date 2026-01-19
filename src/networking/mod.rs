@@ -8,6 +8,7 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
 use crate::engine::models::{Manifest, ManifestFile};
+use crate::util::format_speed;
 
 #[allow(dead_code)]
 const MAX_PROBE_VERSION: u32 = 12;
@@ -169,15 +170,4 @@ fn platform_keys() -> (&'static str, &'static str) {
     };
 
     (os, arch)
-}
-
-#[allow(dead_code)]
-fn format_speed(bytes_per_sec: f32) -> String {
-    if bytes_per_sec < 1024.0 {
-        format!("{bytes_per_sec:.0} B/s")
-    } else if bytes_per_sec < 1024.0 * 1024.0 {
-        format!("{:.1} KB/s", bytes_per_sec / 1024.0)
-    } else {
-        format!("{:.1} MB/s", bytes_per_sec / 1024.0 / 1024.0)
-    }
 }

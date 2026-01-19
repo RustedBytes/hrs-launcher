@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
 use chrono::Utc;
@@ -13,6 +13,8 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
+
+use crate::util::{cancel_requested, format_speed};
 
 const CURSE_FORGE_BASE: &str = "https://api.curseforge.com/v1";
 const HYTALE_GAME_ID: u32 = 70216;
@@ -383,27 +385,10 @@ impl ModService {
     }
 }
 
-fn cancel_requested(cancel: &Option<Arc<AtomicBool>>) -> bool {
-    cancel
-        .as_ref()
-        .map(|flag| flag.load(Ordering::SeqCst))
-        .unwrap_or(false)
-}
-
 fn pick_latest_file(details: &CurseForgeMod) -> Option<ModFile> {
     details
         .latestFiles
         .iter()
         .max_by_key(|f| &f.fileDate)
         .cloned()
-}
-
-fn format_speed(bytes_per_sec: f32) -> String {
-    if bytes_per_sec < 1024.0 {
-        format!("{bytes_per_sec:.0} B/s")
-    } else if bytes_per_sec < 1024.0 * 1024.0 {
-        format!("{:.1} KB/s", bytes_per_sec / 1024.0)
-    } else {
-        format!("{:.1} MB/s", bytes_per_sec / 1024.0 / 1024.0)
-    }
 }

@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
@@ -12,6 +12,7 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
 use crate::env;
+use crate::util::{cancel_requested, format_speed, progress_percent};
 
 pub mod butler;
 
@@ -293,13 +294,6 @@ pub async fn download_pwr(
     Ok(dest)
 }
 
-fn cancel_requested(cancel: &Option<Arc<AtomicBool>>) -> bool {
-    cancel
-        .as_ref()
-        .map(|flag| flag.load(Ordering::SeqCst))
-        .unwrap_or(false)
-}
-
 pub async fn apply_pwr(pwr_file: &Path, mut progress: ProgressCallback<'_>) -> Result<(), String> {
     let game_dir = env::game_latest_dir();
     let staging_dir = game_dir.join("staging-temp");
@@ -512,23 +506,6 @@ fn game_client_path(game_dir: &Path) -> PathBuf {
             .join("HytaleClient")
     } else {
         game_dir.join("Client").join("HytaleClient")
-    }
-}
-
-fn format_speed(bytes_per_sec: f32) -> String {
-    if bytes_per_sec < 1024.0 {
-        format!("{bytes_per_sec:.0} B/s")
-    } else if bytes_per_sec < 1024.0 * 1024.0 {
-        format!("{:.1} KB/s", bytes_per_sec / 1024.0)
-    } else {
-        format!("{:.1} MB/s", bytes_per_sec / 1024.0 / 1024.0)
-    }
-}
-
-fn progress_percent(downloaded: u64, total: Option<u64>) -> f32 {
-    match total {
-        Some(total) if total > 0 => (downloaded as f32 / total as f32) * 100.0,
-        _ => 0.0,
     }
 }
 
