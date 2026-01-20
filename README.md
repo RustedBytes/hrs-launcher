@@ -105,6 +105,7 @@ HRS Launcher is a third-party, community-driven project.
 - [x] Add more languages
 - [x] Direct mod installation
 - [x] Eliminate dead code in the project
+- [ ] Server list support
 - [ ] Add online mode
 
 If you need a feature, create an issue in our issue tracker: https://github.com/RustedBytes/hrs-launcher/issues
