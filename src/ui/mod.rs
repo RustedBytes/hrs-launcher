@@ -1693,52 +1693,75 @@ impl LauncherApp {
             }
 
             ui.add_space(6.0);
-            ui.horizontal_wrapped(|ui| {
-                ui.label(
-                    RichText::new(i18n.mods_sort_label())
-                        .color(colors.text_muted)
-                        .small(),
-                );
-                egui::ComboBox::from_id_salt("mod_sort")
-                    .selected_text(i18n.mod_sort_label(self.mod_sort))
-                    .show_ui(ui, |ui| {
-                        for option in [ModSort::Downloads, ModSort::Updated, ModSort::Name] {
-                            ui.selectable_value(
-                                &mut self.mod_sort,
-                                option,
-                                i18n.mod_sort_label(option),
-                            );
-                        }
-                    });
+            let row_width = ui.available_width();
+            let is_narrow = row_width < 520.0;
+            let gutter = if is_narrow { 0.0 } else { 16.0 };
+            let combo_width = if is_narrow {
+                row_width
+            } else {
+                (row_width - gutter) * 0.5
+            };
 
-                ui.label(
-                    RichText::new(i18n.mods_category_label())
-                        .color(colors.text_muted)
-                        .small(),
-                );
-                ui.add_enabled_ui(!categories.is_empty(), |ui| {
-                    let all_categories = i18n.mods_all_categories();
-                    let selected = self
-                        .mod_category_filter
-                        .as_deref()
-                        .unwrap_or(all_categories)
-                        .to_string();
-                    egui::ComboBox::from_id_salt("mod_category")
-                        .selected_text(selected)
+            ui.horizontal_wrapped(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(
+                        RichText::new(i18n.mods_sort_label())
+                            .color(colors.text_muted)
+                            .small(),
+                    );
+                    ui.add_space(4.0);
+                    ui.set_min_width(combo_width);
+                    egui::ComboBox::from_id_salt("mod_sort")
+                        .selected_text(i18n.mod_sort_label(self.mod_sort))
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut self.mod_category_filter,
-                                None,
-                                all_categories,
-                            );
-                            for category in &categories {
+                            for option in [ModSort::Downloads, ModSort::Updated, ModSort::Name] {
                                 ui.selectable_value(
-                                    &mut self.mod_category_filter,
-                                    Some(category.clone()),
-                                    category,
+                                    &mut self.mod_sort,
+                                    option,
+                                    i18n.mod_sort_label(option),
                                 );
                             }
                         });
+                });
+
+                if !is_narrow {
+                    ui.add_space(gutter);
+                } else {
+                    ui.add_space(8.0);
+                }
+
+                ui.vertical(|ui| {
+                    ui.label(
+                        RichText::new(i18n.mods_category_label())
+                            .color(colors.text_muted)
+                            .small(),
+                    );
+                    ui.add_space(4.0);
+                    ui.set_min_width(combo_width);
+                    ui.add_enabled_ui(!categories.is_empty(), |ui| {
+                        let all_categories = i18n.mods_all_categories();
+                        let selected = self
+                            .mod_category_filter
+                            .as_deref()
+                            .unwrap_or(all_categories)
+                            .to_string();
+                        egui::ComboBox::from_id_salt("mod_category")
+                            .selected_text(selected)
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.mod_category_filter,
+                                    None,
+                                    all_categories,
+                                );
+                                for category in &categories {
+                                    ui.selectable_value(
+                                        &mut self.mod_category_filter,
+                                        Some(category.clone()),
+                                        category,
+                                    );
+                                }
+                            });
+                    });
                 });
             });
 
