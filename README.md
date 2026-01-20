@@ -104,6 +104,7 @@ HRS Launcher is a third-party, community-driven project.
 - [x] When game is downloaded, Play button should be enabled
 - [x] Add more languages
 - [x] Direct mod installation
+- [ ] Eliminate dead code in the project
 - [ ] Add online mode
 
 If you need a feature, create an issue in our issue tracker: https://github.com/RustedBytes/hrs-launcher/issues
