@@ -39,8 +39,8 @@ const DEFAULT_PLAYER_NAME: &str = "Player";
 const DIAGNOSTICS_REPORT_HEIGHT: f32 = 720.0;
 const NOTO_SANS_FONT_ID: &str = "noto_sans_regular";
 const NOTO_SANS_FONT_CN_ID: &str = "noto_sans_sc_regular";
-const NOTO_SANS_REGULAR: &[u8] = include_bytes!("../../NotoSans-Regular.ttf");
-const NOTO_SANS_SC_REGULAR: &[u8] = include_bytes!("../../NotoSansSC-Regular.ttf");
+const NOTO_SANS_REGULAR: &[u8] = include_bytes!("../../assets/NotoSans-Regular.ttf");
+const NOTO_SANS_SC_REGULAR: &[u8] = include_bytes!("../../assets/NotoSansSC-Regular.ttf");
 const CTA_HEIGHT: f32 = 34.0;
 const CONTROL_BUTTON_WIDTH: f32 = 168.0;
 
