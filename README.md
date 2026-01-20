@@ -74,7 +74,7 @@ sudo apt update && sudo apt install libzstd1
 
 find /usr/lib -name "libzstd.so*" 
 
-ln -s /usr/lib/x86_64-linux-gnu/libzstd.so.1 /home/yehor/.local/share/hrs-launcher/release/package/game/latest/Client/libzstd.so 
+ln -s /usr/lib/x86_64-linux-gnu/libzstd.so.1 ~/.local/share/hrs-launcher/release/package/game/latest/Client/libzstd.so 
 ```
 
 ## Acknowledgements
