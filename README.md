@@ -89,6 +89,10 @@ HRS Launcher is a third-party, community-driven project.
 - "Hytale" is a trademark of Hypixel Studios.
 - This software is provided "as is" for educational and interoperability purposes. Users are encouraged to support the official developers by purchasing the game.
 
+Be aware of this:
+
+> While the act of using the launcher is a breach of contract (violating restrictions in Section 4.1), using it to play the game results in the automatic termination of your license (Section 11.2). Therefore, playing the game through the launcher constitutes using the software without a license, which is the foundational definition of software piracy.
+
 ## TODO
 
 - [x] Add a button to open Game folder
