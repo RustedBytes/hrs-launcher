@@ -24,19 +24,10 @@ pub enum AppState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AuthMode {
     Offline,
-    #[allow(dead_code)]
     Online,
 }
 
 impl AuthMode {
-    #[allow(dead_code)]
-    pub fn label(self) -> &'static str {
-        match self {
-            AuthMode::Offline => "Offline",
-            AuthMode::Online => "Online",
-        }
-    }
-
     pub fn arg_value(self) -> &'static str {
         match self {
             AuthMode::Offline => "offline",
@@ -56,7 +47,6 @@ pub enum UserAction {
     CheckForUpdates {
         target_version: Option<u32>,
     },
-    #[allow(dead_code)]
     DownloadMod {
         mod_id: i32,
     },

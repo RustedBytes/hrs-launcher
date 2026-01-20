@@ -34,10 +34,6 @@ pub struct ProgressUpdate {
     pub message: String,
     pub current_file: Option<String>,
     pub speed: Option<String>,
-    #[allow(dead_code)]
-    pub downloaded: Option<u64>,
-    #[allow(dead_code)]
-    pub total: Option<u64>,
 }
 
 pub type ProgressCallback<'a> = Option<&'a mut (dyn FnMut(ProgressUpdate) + Send)>;
@@ -205,8 +201,6 @@ pub async fn download_pwr(
             message: "Downloading Hytale...".into(),
             current_file: dest.file_name().map(|n| n.to_string_lossy().into()),
             speed: None,
-            downloaded: None,
-            total: expected_size.checked_into(),
         },
     );
 
@@ -262,8 +256,6 @@ pub async fn download_pwr(
                     message: "Downloading game patch...".into(),
                     current_file: dest.file_name().map(|n| n.to_string_lossy().into()),
                     speed: Some(format_speed(speed)),
-                    downloaded: Some(downloaded),
-                    total,
                 },
             );
             last_tick = Instant::now();
@@ -285,8 +277,6 @@ pub async fn download_pwr(
             message: "Download complete".into(),
             current_file: dest.file_name().map(|n| n.to_string_lossy().into()),
             speed: Some("0 B/s".into()),
-            downloaded: Some(downloaded),
-            total,
         },
     );
 
@@ -318,8 +308,6 @@ pub async fn apply_pwr(pwr_file: &Path, mut progress: ProgressCallback<'_>) -> R
                 message: "Game already installed".into(),
                 current_file: None,
                 speed: None,
-                downloaded: None,
-                total: None,
             },
         );
         return Ok(());
@@ -335,8 +323,6 @@ pub async fn apply_pwr(pwr_file: &Path, mut progress: ProgressCallback<'_>) -> R
             message: "Preparing installation...".into(),
             current_file: None,
             speed: None,
-            downloaded: None,
-            total: None,
         },
     );
 
@@ -353,8 +339,6 @@ pub async fn apply_pwr(pwr_file: &Path, mut progress: ProgressCallback<'_>) -> R
             message: "Applying game patch...".into(),
             current_file: None,
             speed: None,
-            downloaded: None,
-            total: None,
         },
     );
 
@@ -404,20 +388,11 @@ pub async fn apply_pwr(pwr_file: &Path, mut progress: ProgressCallback<'_>) -> R
             message: "Hytale installed successfully".into(),
             current_file: None,
             speed: None,
-            downloaded: None,
-            total: None,
         },
     );
 
     info!("apply_pwr: install completed");
     Ok(())
-}
-
-#[allow(dead_code)]
-pub fn get_local_version() -> Option<u32> {
-    let version_file = env::default_app_dir().join("version.txt");
-    let data = fs::read_to_string(version_file).ok()?;
-    data.trim().parse::<u32>().ok()
 }
 
 pub fn save_local_version(version: u32) -> Result<(), String> {
@@ -516,15 +491,5 @@ fn game_client_path(game_dir: &Path) -> PathBuf {
             .join("HytaleClient")
     } else {
         game_dir.join("Client").join("HytaleClient")
-    }
-}
-
-trait CheckedInto<T> {
-    fn checked_into(self) -> Option<T>;
-}
-
-impl CheckedInto<u64> for u64 {
-    fn checked_into(self) -> Option<u64> {
-        Some(self)
     }
 }

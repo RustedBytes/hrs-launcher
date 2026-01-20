@@ -44,6 +44,8 @@ impl I18n {
         Self { language }
     }
 
+    #[allow(clippy::too_many_arguments)]
+    // Single helper keeps call sites compact for locale strings.
     fn pick<'a>(
         self,
         english: &'a str,

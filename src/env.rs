@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -62,32 +60,11 @@ pub fn mods_dir() -> PathBuf {
     default_app_dir().join("UserData").join("Mods")
 }
 
-pub fn instances_dir() -> PathBuf {
-    default_app_dir().join("instances")
-}
-
-pub fn instance_dir(branch: &str, version: i32) -> PathBuf {
-    instances_dir().join(format!("{branch}-v{version}"))
-}
-
-pub fn instance_mods_dir(branch: &str, version: i32) -> PathBuf {
-    instance_dir(branch, version).join("mods")
-}
-
-pub fn instance_game_dir(branch: &str, version: i32) -> PathBuf {
-    instance_dir(branch, version).join("game")
-}
-
-pub fn instance_userdata_dir(branch: &str, version: i32) -> PathBuf {
-    instance_dir(branch, version).join("UserData")
-}
-
 /// Create the on-disk folder layout expected by the launcher.
 pub fn ensure_base_dirs() -> std::io::Result<()> {
     let root = default_app_dir();
     let folders = [
         root.clone(),
-        instances_dir(),
         jre_dir(),
         butler_dir(),
         cache_dir(),

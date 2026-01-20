@@ -30,8 +30,6 @@ pub async fn install_butler(mut progress: ProgressCallback<'_>) -> Result<PathBu
                 message: "Butler ready".into(),
                 current_file: None,
                 speed: None,
-                downloaded: None,
-                total: None,
             },
         );
         return Ok(path);
@@ -78,8 +76,6 @@ pub async fn install_butler(mut progress: ProgressCallback<'_>) -> Result<PathBu
             message: "Butler installed".into(),
             current_file: None,
             speed: None,
-            downloaded: None,
-            total: None,
         },
     );
 
@@ -133,8 +129,6 @@ async fn download_with_progress(
             message: "Downloading Butler...".into(),
             current_file: dest.file_name().map(|n| n.to_string_lossy().into()),
             speed: None,
-            downloaded: None,
-            total: None,
         },
     );
 
@@ -178,8 +172,6 @@ async fn download_with_progress(
                     message: "Downloading Butler...".into(),
                     current_file: dest.file_name().map(|n| n.to_string_lossy().into()),
                     speed: Some(format_speed(speed)),
-                    downloaded: Some(downloaded),
-                    total,
                 },
             );
             last_tick = Instant::now();

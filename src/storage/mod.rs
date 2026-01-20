@@ -40,29 +40,12 @@ impl StorageManager {
             .map_err(|e| format!("unable to persist version: {e}"))
     }
 
-    #[allow(dead_code)]
-    pub fn cache_path(&self, filename: &str) -> PathBuf {
-        env::cache_dir().join(filename)
-    }
-
-    #[allow(dead_code)]
     pub fn game_dir(&self) -> PathBuf {
         env::game_latest_dir()
     }
 
-    #[allow(dead_code)]
     pub fn mods_dir(&self) -> PathBuf {
         env::mods_dir()
-    }
-
-    #[allow(dead_code)]
-    pub fn logs_dir(&self) -> PathBuf {
-        env::logs_dir()
-    }
-
-    #[allow(dead_code)]
-    pub fn crash_dir(&self) -> PathBuf {
-        env::crashes_dir()
     }
 
     pub async fn uninstall_game(&self) -> Result<(), String> {

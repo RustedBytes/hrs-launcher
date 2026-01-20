@@ -1,8 +1,5 @@
-#![allow(dead_code)]
-
 use std::fs;
 use std::net::ToSocketAddrs;
-use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 use log::{debug, info, warn};
@@ -88,26 +85,6 @@ impl Diagnostics {
             dependencies: self.check_dependencies(),
             timestamp: format_timestamp(SystemTime::now()),
         }
-    }
-
-    pub fn save_report(&self, report: &DiagnosticReport) -> Result<PathBuf, String> {
-        info!("diagnostics: saving report");
-        let logs = app_env::logs_dir();
-        fs::create_dir_all(&logs).map_err(|e| format!("unable to create logs dir: {e}"))?;
-
-        let filename = format!(
-            "diagnostic_{}.txt",
-            report
-                .timestamp
-                .replace(':', "-")
-                .replace(' ', "_")
-                .replace('.', "-")
-        );
-        let path = logs.join(filename);
-        fs::write(&path, format_report(report))
-            .map_err(|e| format!("failed to write report: {e}"))?;
-        info!("diagnostics: report written to {}", path.display());
-        Ok(path)
     }
 
     fn platform_info(&self) -> PlatformInfo {

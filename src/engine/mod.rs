@@ -11,7 +11,6 @@ use crate::engine::state::{AppState, UserAction};
 use crate::env;
 use crate::jre::JreManager;
 use crate::mods::ModService;
-use crate::networking::NetworkClient;
 use crate::process::ProcessLauncher;
 use crate::pwr;
 use crate::storage::StorageManager;
@@ -21,8 +20,6 @@ pub mod state;
 
 pub struct LauncherEngine {
     pub state: AppState,
-    #[allow(dead_code)]
-    networking: NetworkClient,
     storage: StorageManager,
     process: ProcessLauncher,
     mods: ModService,
@@ -37,11 +34,9 @@ impl LauncherEngine {
         cancel_flag: Arc<AtomicBool>,
     ) -> Self {
         let mods = ModService::new(storage.mods_dir());
-        let networking = NetworkClient::new();
         let jre = JreManager::default();
         Self {
             state: AppState::Initialising,
-            networking,
             storage,
             process,
             mods,
@@ -50,7 +45,6 @@ impl LauncherEngine {
         }
     }
 
-    #[allow(dead_code)]
     pub fn mods_service(&self) -> ModService {
         self.mods.clone()
     }
@@ -260,7 +254,6 @@ impl LauncherEngine {
         check
     }
 
-    #[allow(dead_code)]
     pub async fn run_diagnostics(&self) -> String {
         let diag = Diagnostics::new(env!("CARGO_PKG_VERSION")).run().await;
         crate::diagnostics::format_report(&diag)

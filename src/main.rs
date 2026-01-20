@@ -9,7 +9,6 @@ mod engine;
 mod env;
 mod jre;
 mod mods;
-mod networking;
 mod process;
 mod pwr;
 mod storage;

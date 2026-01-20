@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 #![allow(non_snake_case)]
 
 use std::io::ErrorKind;
@@ -51,16 +50,6 @@ pub struct InstalledMod {
 #[derive(Debug, Clone, Deserialize)]
 pub struct CurseForgeResponse<T> {
     pub data: T,
-    #[allow(dead_code)]
-    pub pagination: Option<Pagination>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct Pagination {
-    pub index: u32,
-    pub pageSize: u32,
-    pub resultCount: u32,
-    pub totalCount: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -93,7 +82,6 @@ pub struct ModLogo {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ModCategory {
-    pub id: i32,
     pub name: String,
 }
 
@@ -176,24 +164,6 @@ impl ModService {
             .json()
             .await
             .map_err(|e| format!("mod details parse error: {e}"))?;
-        Ok(wrapped.data)
-    }
-
-    pub async fn mod_files(&self, mod_id: i32) -> Result<Vec<ModFile>, String> {
-        let url = format!("{CURSE_FORGE_BASE}/mods/{mod_id}/files");
-        let resp = self
-            .client
-            .get(&url)
-            .header("x-api-key", CF_API_KEY)
-            .send()
-            .await
-            .map_err(|e| format!("mod files failed: {e}"))?
-            .error_for_status()
-            .map_err(|e| format!("mod files status error: {e}"))?;
-        let wrapped: CurseForgeResponse<Vec<ModFile>> = resp
-            .json()
-            .await
-            .map_err(|e| format!("mod files parse error: {e}"))?;
         Ok(wrapped.data)
     }
 
@@ -280,7 +250,6 @@ impl ModService {
 
     /// Install a mod from a locally available archive by copying it into the mods directory
     /// and recording it in the manifest.
-    #[must_use]
     pub async fn install_from_path(&self, source: &Path) -> Result<InstalledMod, String> {
         let metadata = fs::metadata(source)
             .await
@@ -513,11 +482,12 @@ fn slugify(name: &str) -> String {
         if ch.is_ascii_alphanumeric() {
             slug.push(ch.to_ascii_lowercase());
             last_dash = false;
-        } else if (ch == '-' || ch == '_' || ch.is_whitespace()) && !last_dash {
-            if !slug.is_empty() {
-                slug.push('-');
-                last_dash = true;
-            }
+        } else if (ch == '-' || ch == '_' || ch.is_whitespace())
+            && !last_dash
+            && !slug.is_empty()
+        {
+            slug.push('-');
+            last_dash = true;
         }
     }
     let trimmed = slug.trim_matches('-');
@@ -532,7 +502,7 @@ fn file_version_label(metadata: &std::fs::Metadata) -> String {
     metadata
         .modified()
         .ok()
-        .map(|modified| chrono::DateTime::<Utc>::from(modified))
+        .map(chrono::DateTime::<Utc>::from)
         .map(|dt| format!("local {}", dt.format("%Y-%m-%d %H:%M")))
         .unwrap_or_else(|| "local file".into())
 }

@@ -145,7 +145,7 @@ const LOCALE_LANGUAGE_CODES: [(&[&str], Language); 10] = [
 
 fn parse_locale_token(token: &str) -> Option<Language> {
     let normalized = token
-        .split(|c| matches!(c, '.' | '@'))
+        .split(|c| ['.', '@'].contains(&c))
         .next()
         .unwrap_or(token)
         .replace('-', "_")
@@ -153,10 +153,7 @@ fn parse_locale_token(token: &str) -> Option<Language> {
     let language_code = normalized.split('_').next().unwrap_or(&normalized);
 
     LOCALE_LANGUAGE_CODES.iter().find_map(|(codes, language)| {
-        codes
-            .iter()
-            .any(|code| *code == language_code)
-            .then_some(*language)
+        codes.contains(&language_code).then_some(*language)
     })
 }
 
@@ -1118,10 +1115,8 @@ impl LauncherApp {
             };
             let mut first_error: Option<String> = None;
             for path in unique_files {
-                if let Err(err) = service.install_from_path(&path).await {
-                    if first_error.is_none() {
-                        first_error = Some(err);
-                    }
+                if let Err(err) = service.install_from_path(&path).await && first_error.is_none() {
+                    first_error = Some(err);
                 }
             }
             let update = match service.installed_mods().await {
@@ -2339,7 +2334,7 @@ impl LauncherApp {
         section_frame(colors).show(ui, |ui| {
             ui.heading(i18n.diagnostics_heading());
             ui.add_space(6.0);
-            if let Some(_) = &self.diagnostics {
+            if self.diagnostics.is_some() {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(i18n.diagnostics_completed()).color(colors.text_muted));
                     let view_btn = egui::Button::new(i18n.view_report())

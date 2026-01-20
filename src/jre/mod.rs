@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Read};
@@ -33,7 +32,6 @@ struct JrePlatform {
 
 #[derive(Debug, Clone, Deserialize)]
 struct JreConfig {
-    version: String,
     #[serde(rename = "download_url")]
     download_url: HashMap<String, HashMap<String, JrePlatform>>,
 }
