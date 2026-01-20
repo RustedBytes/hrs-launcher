@@ -19,9 +19,9 @@ Check out the latest releases on GitHub: https://github.com/RustedBytes/hrs-laun
 
 ## Screenshots
 
-### Xubuntu
+### macOS
 
-![Ubuntu Screenshot](docs/screenshots/xubuntu.png)
+![Screenshot](docs/screenshots/macos.png)
 
 ## Building
 
