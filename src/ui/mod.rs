@@ -41,6 +41,8 @@ const NOTO_SANS_FONT_ID: &str = "noto_sans_regular";
 const NOTO_SANS_FONT_CN_ID: &str = "noto_sans_sc_regular";
 const NOTO_SANS_REGULAR: &[u8] = include_bytes!("../../NotoSans-Regular.ttf");
 const NOTO_SANS_SC_REGULAR: &[u8] = include_bytes!("../../NotoSansSC-Regular.ttf");
+const CTA_HEIGHT: f32 = 34.0;
+const CONTROL_BUTTON_WIDTH: f32 = 168.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Theme {
@@ -244,7 +246,7 @@ fn primary_cta_button(
     egui::Button::new(label)
         .fill(colors.accent_soft)
         .stroke(Stroke::new(1.0, colors.accent))
-        .min_size(Vec2::new(min_width, 34.0))
+        .min_size(Vec2::new(min_width, CTA_HEIGHT))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1435,91 +1437,107 @@ impl LauncherApp {
                     });
                 }
             });
-            ui.add_space(8.0);
-
-            match &self.state {
-                AppState::CheckingForUpdates => {
-                    ui.label(i18n.checking());
-                }
-                AppState::Downloading {
-                    file,
-                    progress,
-                    speed,
-                } => {
-                    ui.label(i18n.downloading(file));
-                    ui.add(
-                        egui::ProgressBar::new(progress / 100.0)
-                            .fill(colors.accent)
-                            .corner_radius(CornerRadius::same(10))
-                            .desired_height(22.0)
-                            .text(i18n.progress(*progress, speed)),
-                    );
-                }
-                AppState::Uninstalling => {
-                    ui.horizontal(|ui| {
-                        ui.add(egui::Spinner::new());
-                        ui.label(i18n.uninstalling());
-                    });
-                }
-                AppState::ReadyToPlay { version } => {
-                    ui.label(RichText::new(i18n.ready(version)).strong());
-                }
-                AppState::DiagnosticsRunning => {
-                    ui.label(i18n.diagnostics_running());
-                }
-                AppState::DiagnosticsReady { .. } => {
-                    ui.label(i18n.diagnostics_completed());
-                }
-                AppState::Playing => {
-                    ui.label(i18n.playing());
-                }
-                AppState::Error(msg) => {
-                    ui.colored_label(colors.danger, i18n.error(msg));
-                }
-                AppState::Initialising => {
-                    ui.label(i18n.initialising());
-                }
-                AppState::Idle => {
-                    ui.label(i18n.idle());
-                }
-            }
-
             ui.add_space(10.0);
-            ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                let play_enabled = matches!(self.state, AppState::ReadyToPlay { .. });
-                let busy_refresh = matches!(
-                    self.state,
-                    AppState::Downloading { .. }
-                        | AppState::CheckingForUpdates
-                        | AppState::DiagnosticsRunning
-                        | AppState::Uninstalling
-                        | AppState::Initialising
+
+            let available = ui.available_width();
+            let gutter = 14.0;
+            let info_width = (available - gutter) * 0.6;
+            let action_width = available - gutter - info_width;
+
+            ui.horizontal_top(|ui| {
+                ui.allocate_ui_with_layout(
+                    Vec2::new(info_width, 0.0),
+                    Layout::top_down(Align::LEFT),
+                    |ui| match &self.state {
+                        AppState::CheckingForUpdates => {
+                            ui.label(i18n.checking());
+                        }
+                        AppState::Downloading {
+                            file,
+                            progress,
+                            speed,
+                        } => {
+                            ui.label(i18n.downloading(file));
+                            ui.add(
+                                egui::ProgressBar::new(progress / 100.0)
+                                    .fill(colors.accent)
+                                    .corner_radius(CornerRadius::same(10))
+                                    .desired_height(22.0)
+                                    .text(i18n.progress(*progress, speed)),
+                            );
+                        }
+                        AppState::Uninstalling => {
+                            ui.horizontal(|ui| {
+                                ui.add(egui::Spinner::new());
+                                ui.label(i18n.uninstalling());
+                            });
+                        }
+                        AppState::ReadyToPlay { version } => {
+                            ui.label(RichText::new(i18n.ready(version)).strong());
+                        }
+                        AppState::DiagnosticsRunning => {
+                            ui.label(i18n.diagnostics_running());
+                        }
+                        AppState::DiagnosticsReady { .. } => {
+                            ui.label(i18n.diagnostics_completed());
+                        }
+                        AppState::Playing => {
+                            ui.label(i18n.playing());
+                        }
+                        AppState::Error(msg) => {
+                            ui.colored_label(colors.danger, i18n.error(msg));
+                        }
+                        AppState::Initialising => {
+                            ui.label(i18n.initialising());
+                        }
+                        AppState::Idle => {
+                            ui.label(i18n.idle());
+                        }
+                    },
                 );
-                let play_label = RichText::new(i18n.play_button())
-                    .color(if play_enabled {
-                        colors.text_primary
-                    } else {
-                        colors.text_muted
-                    })
-                    .strong();
-                let play_btn = primary_cta_button(play_label, colors, 120.0);
-                if ui.add_enabled(play_enabled, play_btn).clicked() {
-                    let player_name = self.commit_player_name();
-                    self.trigger_action(UserAction::ClickPlay {
-                        player_name,
-                        auth_mode: self.auth_mode,
-                    });
-                }
-                ui.add_space(8.0);
-                let refresh_btn = egui::Button::new(i18n.status_refresh())
-                    .fill(colors.surface_elev)
-                    .stroke(Stroke::new(1.0, colors.border_strong))
-                    .min_size(Vec2::new(110.0, 32.0));
-                if ui.add_enabled(!busy_refresh, refresh_btn).clicked() {
-                    self.trigger_action(UserAction::CheckForUpdates {
-                        target_version: self.selected_version,
-                    });
-                }
+
+                ui.add_space(gutter);
+
+                ui.allocate_ui_with_layout(
+                    Vec2::new(action_width, 0.0),
+                    Layout::top_down(Align::RIGHT),
+                    |ui| {
+                        let play_enabled = matches!(self.state, AppState::ReadyToPlay { .. });
+                        let busy_refresh = matches!(
+                            self.state,
+                            AppState::Downloading { .. }
+                                | AppState::CheckingForUpdates
+                                | AppState::DiagnosticsRunning
+                                | AppState::Uninstalling
+                                | AppState::Initialising
+                        );
+                        let play_label = RichText::new(i18n.play_button())
+                            .color(if play_enabled {
+                                colors.text_primary
+                            } else {
+                                colors.text_muted
+                            })
+                            .strong();
+                        let play_btn = primary_cta_button(play_label, colors, 140.0);
+                        if ui.add_enabled(play_enabled, play_btn).clicked() {
+                            let player_name = self.commit_player_name();
+                            self.trigger_action(UserAction::ClickPlay {
+                                player_name,
+                                auth_mode: self.auth_mode,
+                            });
+                        }
+                        ui.add_space(10.0);
+                        let refresh_btn = egui::Button::new(i18n.status_refresh())
+                            .fill(colors.surface_elev)
+                            .stroke(Stroke::new(1.0, colors.border_strong))
+                            .min_size(Vec2::new(140.0, 32.0));
+                        if ui.add_enabled(!busy_refresh, refresh_btn).clicked() {
+                            self.trigger_action(UserAction::CheckForUpdates {
+                                target_version: self.selected_version,
+                            });
+                        }
+                    },
+                );
             });
         });
     }
@@ -1617,7 +1635,9 @@ impl LauncherApp {
                 let mods_search_hint = i18n.mods_search_hint();
                 let resp = ui.add_sized(
                     Vec2::new(320.0, 36.0),
-                    egui::TextEdit::singleline(&mut self.mod_query).hint_text(mods_search_hint),
+                    egui::TextEdit::singleline(&mut self.mod_query)
+                        .hint_text(mods_search_hint)
+                        .vertical_align(Align::Center),
                 );
                 if resp.changed() {
                     self.mod_error = None;
@@ -1997,6 +2017,221 @@ impl LauncherApp {
         ui.add_space(6.0);
     }
 
+    fn render_control_inputs(&mut self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(i18n.player_name_label()).color(colors.text_muted));
+            let name_placeholder = i18n.player_name_placeholder();
+            let resp = ui.add_sized(
+                Vec2::new(220.0, 36.0),
+                egui::TextEdit::singleline(&mut self.player_name)
+                    .hint_text(name_placeholder)
+                    .vertical_align(Align::Center),
+            );
+            if resp.changed() {
+                self.player_name_error = None;
+            }
+            let save_clicked = ui
+                .add(
+                    egui::Button::new(i18n.player_name_save_button())
+                        .fill(colors.accent_soft)
+                        .stroke(Stroke::new(1.0, colors.accent))
+                        .min_size(Vec2::new(72.0, 28.0)),
+                )
+                .clicked();
+            let enter_pressed = resp.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+            if save_clicked || enter_pressed {
+                self.commit_player_name();
+            }
+        });
+        if let Some(err) = &self.player_name_error {
+            ui.colored_label(colors.danger, i18n.player_name_error(err));
+        }
+        ui.add_space(6.0);
+
+        let auth_label = i18n.auth_mode_value(self.auth_mode);
+        let auth_offline_label = i18n.auth_mode_value(AuthMode::Offline);
+        let auth_online_label = i18n.auth_mode_value(AuthMode::Online);
+
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(i18n.auth_mode_label()).color(colors.text_muted));
+            egui::ComboBox::from_id_salt("auth_mode_combo")
+                .selected_text(auth_label)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.auth_mode, AuthMode::Offline, auth_offline_label);
+                    ui.selectable_value(&mut self.auth_mode, AuthMode::Online, auth_online_label);
+                });
+        });
+        ui.add_space(10.0);
+
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new(i18n.version_label()).color(colors.text_muted));
+            let latest_label = i18n.version_latest(self.available_versions.first().copied());
+            let version_labels: Vec<(u32, String)> = self
+                .available_versions
+                .iter()
+                .map(|version| (*version, i18n.version_value(*version)))
+                .collect();
+            let selected_text = self
+                .selected_version
+                .map(|version| i18n.version_value(version))
+                .unwrap_or_else(|| latest_label.clone());
+            let previous = self.selected_version;
+            egui::ComboBox::from_id_salt("version_combo")
+                .selected_text(selected_text)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.selected_version, None, latest_label.clone());
+                    for (version, label) in &version_labels {
+                        ui.selectable_value(
+                            &mut self.selected_version,
+                            Some(*version),
+                            label.clone(),
+                        );
+                    }
+                });
+            self.sync_version_selection(previous);
+
+            if self.version_loading {
+                ui.add(egui::Spinner::new());
+            } else if ui
+                .add(
+                    egui::Button::new(i18n.version_refresh_button())
+                        .fill(colors.surface_elev)
+                        .stroke(Stroke::new(1.0, colors.border_strong))
+                        .min_size(Vec2::new(110.0, 28.0)),
+                )
+                .clicked()
+            {
+                self.start_version_discovery();
+            }
+        });
+
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(i18n.version_custom_label()).color(colors.text_muted));
+            let placeholder = i18n.version_input_placeholder();
+            let resp = ui.add_sized(
+                Vec2::new(160.0, 36.0),
+                egui::TextEdit::singleline(&mut self.version_input)
+                    .hint_text(placeholder)
+                    .vertical_align(Align::Center),
+            );
+            if resp.changed() {
+                self.version_input_error = None;
+            }
+            let apply_clicked = ui
+                .add(
+                    egui::Button::new(i18n.version_apply_button())
+                        .fill(colors.accent_soft)
+                        .stroke(Stroke::new(1.0, colors.accent))
+                        .min_size(Vec2::new(90.0, 28.0)),
+                )
+                .clicked();
+            let enter_pressed = resp.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+            if apply_clicked || enter_pressed {
+                self.apply_version_input();
+            }
+        });
+        if let Some(err) = &self.version_fetch_error {
+            ui.colored_label(colors.danger, i18n.version_fetch_error(err));
+        }
+        if let Some(err) = &self.version_input_error {
+            ui.colored_label(colors.danger, err);
+        }
+    }
+
+    fn render_control_actions(&mut self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
+        let is_fetching = matches!(
+            self.state,
+            AppState::Downloading { .. } | AppState::CheckingForUpdates
+        );
+        ui.horizontal_wrapped(|ui| {
+            let download_btn = egui::Button::new(i18n.download_button())
+                .fill(colors.accent_soft)
+                .stroke(Stroke::new(1.0, colors.accent))
+                .min_size(Vec2::new(CONTROL_BUTTON_WIDTH, CTA_HEIGHT));
+            if ui.add_enabled(!is_fetching, download_btn).clicked() {
+                self.trigger_action(UserAction::DownloadGame {
+                    target_version: self.selected_version,
+                });
+            }
+
+            let check_btn = egui::Button::new(i18n.check_updates_button())
+                .fill(colors.surface_elev)
+                .stroke(Stroke::new(1.0, colors.border_strong))
+                .min_size(Vec2::new(CONTROL_BUTTON_WIDTH, CTA_HEIGHT));
+            if ui.add_enabled(!is_fetching, check_btn).clicked() {
+                self.trigger_action(UserAction::CheckForUpdates {
+                    target_version: self.selected_version,
+                });
+            }
+
+            if matches!(self.state, AppState::Downloading { .. }) {
+                let cancel_btn = egui::Button::new(i18n.cancel_button())
+                    .fill(tint(colors.danger, 40))
+                    .stroke(Stroke::new(1.0, colors.danger))
+                    .min_size(Vec2::new(CONTROL_BUTTON_WIDTH, CTA_HEIGHT));
+                if ui.add(cancel_btn).clicked() {
+                    self.trigger_action(UserAction::ClickCancelDownload);
+                }
+            }
+        });
+
+        ui.add_space(10.0);
+
+        ui.horizontal_wrapped(|ui| {
+            if ui
+                .add(
+                    egui::Button::new(i18n.run_diagnostics_button())
+                        .fill(colors.accent_soft)
+                        .stroke(Stroke::new(1.0, colors.accent))
+                        .min_size(Vec2::new(CONTROL_BUTTON_WIDTH, CTA_HEIGHT)),
+                )
+                .clicked()
+            {
+                self.trigger_action(UserAction::RunDiagnostics);
+            }
+
+            let open_enabled = env::game_latest_dir().exists();
+            if ui
+                .add_enabled(
+                    open_enabled,
+                    egui::Button::new(i18n.open_game_folder_button())
+                        .fill(colors.surface_elev)
+                        .stroke(Stroke::new(1.0, colors.border_strong))
+                        .min_size(Vec2::new(CONTROL_BUTTON_WIDTH, CTA_HEIGHT)),
+                )
+                .clicked()
+            {
+                self.trigger_action(UserAction::OpenGameFolder);
+            }
+        });
+
+        ui.add_space(10.0);
+
+        let is_busy = matches!(
+            self.state,
+            AppState::Downloading { .. }
+                | AppState::CheckingForUpdates
+                | AppState::DiagnosticsRunning
+                | AppState::Playing
+                | AppState::Uninstalling
+                | AppState::Initialising
+        );
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            let uninstall_clicked = ui
+                .add_enabled(
+                    !is_busy,
+                    egui::Button::new(i18n.uninstall_button())
+                        .fill(tint(colors.danger, 40))
+                        .stroke(Stroke::new(1.0, colors.danger))
+                        .min_size(Vec2::new(CONTROL_BUTTON_WIDTH, CTA_HEIGHT)),
+                )
+                .clicked();
+            if uninstall_clicked {
+                self.show_uninstall_confirm = true;
+            }
+        });
+    }
+
     fn render_controls(&mut self, ui: &mut egui::Ui, colors: &ThemePalette, i18n: I18n) {
         section_frame(colors).show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -2009,232 +2244,37 @@ impl LauncherApp {
             });
             ui.add_space(10.0);
 
-            ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new(i18n.player_name_label()).color(colors.text_muted));
-                    let name_placeholder = i18n.player_name_placeholder();
-                    let resp = ui.add_sized(
-                        Vec2::new(220.0, 36.0),
-                        egui::TextEdit::singleline(&mut self.player_name)
-                            .hint_text(name_placeholder),
+            let available = ui.available_width();
+            let gutter = 14.0;
+            let is_narrow = available < 900.0;
+            if is_narrow {
+                self.render_control_inputs(ui, colors, i18n);
+                ui.add_space(12.0);
+                self.render_control_actions(ui, colors, i18n);
+            } else {
+                let left_width = (available - gutter) * 0.55;
+                let right_width = available - gutter - left_width;
+
+                ui.horizontal_top(|ui| {
+                    ui.allocate_ui_with_layout(
+                        Vec2::new(left_width, 0.0),
+                        Layout::top_down(Align::LEFT),
+                        |ui| {
+                            self.render_control_inputs(ui, colors, i18n);
+                        },
                     );
-                    if resp.changed() {
-                        self.player_name_error = None;
-                    }
-                    let save_clicked = ui
-                        .add(
-                            egui::Button::new(i18n.player_name_save_button())
-                                .fill(colors.accent_soft)
-                                .stroke(Stroke::new(1.0, colors.accent))
-                                .min_size(Vec2::new(72.0, 28.0)),
-                        )
-                        .clicked();
-                    let enter_pressed =
-                        resp.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                    if save_clicked || enter_pressed {
-                        self.commit_player_name();
-                    }
-                });
-                if let Some(err) = &self.player_name_error {
-                    ui.colored_label(colors.danger, i18n.player_name_error(err));
-                }
-                ui.add_space(6.0);
 
-                let auth_label = i18n.auth_mode_value(self.auth_mode);
-                let auth_offline_label = i18n.auth_mode_value(AuthMode::Offline);
-                let auth_online_label = i18n.auth_mode_value(AuthMode::Online);
+                    ui.add_space(gutter);
 
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new(i18n.auth_mode_label()).color(colors.text_muted));
-                    egui::ComboBox::from_id_salt("auth_mode_combo")
-                        .selected_text(auth_label)
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut self.auth_mode,
-                                AuthMode::Offline,
-                                auth_offline_label,
-                            );
-                            ui.selectable_value(
-                                &mut self.auth_mode,
-                                AuthMode::Online,
-                                auth_online_label,
-                            );
-                        });
-                });
-                ui.add_space(8.0);
-
-                ui.horizontal_wrapped(|ui| {
-                    ui.label(RichText::new(i18n.version_label()).color(colors.text_muted));
-                    let latest_label =
-                        i18n.version_latest(self.available_versions.first().copied());
-                    let version_labels: Vec<(u32, String)> = self
-                        .available_versions
-                        .iter()
-                        .map(|version| (*version, i18n.version_value(*version)))
-                        .collect();
-                    let selected_text = self
-                        .selected_version
-                        .map(|version| i18n.version_value(version))
-                        .unwrap_or_else(|| latest_label.clone());
-                    let previous = self.selected_version;
-                    egui::ComboBox::from_id_salt("version_combo")
-                        .selected_text(selected_text)
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut self.selected_version,
-                                None,
-                                latest_label.clone(),
-                            );
-                            for (version, label) in &version_labels {
-                                ui.selectable_value(
-                                    &mut self.selected_version,
-                                    Some(*version),
-                                    label.clone(),
-                                );
-                            }
-                        });
-                    self.sync_version_selection(previous);
-
-                    if self.version_loading {
-                        ui.add(egui::Spinner::new());
-                    } else if ui
-                        .add(
-                            egui::Button::new(i18n.version_refresh_button())
-                                .fill(colors.surface_elev)
-                                .stroke(Stroke::new(1.0, colors.border_strong))
-                                .min_size(Vec2::new(110.0, 28.0)),
-                        )
-                        .clicked()
-                    {
-                        self.start_version_discovery();
-                    }
-                });
-
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new(i18n.version_custom_label()).color(colors.text_muted));
-                    let placeholder = i18n.version_input_placeholder();
-                    let resp = ui.add_sized(
-                        Vec2::new(160.0, 36.0),
-                        egui::TextEdit::singleline(&mut self.version_input)
-                            .hint_text(placeholder),
+                    ui.allocate_ui_with_layout(
+                        Vec2::new(right_width, 0.0),
+                        Layout::top_down(Align::LEFT),
+                        |ui| {
+                            self.render_control_actions(ui, colors, i18n);
+                        },
                     );
-                    if resp.changed() {
-                        self.version_input_error = None;
-                    }
-                    let apply_clicked = ui
-                        .add(
-                            egui::Button::new(i18n.version_apply_button())
-                                .fill(colors.accent_soft)
-                                .stroke(Stroke::new(1.0, colors.accent))
-                                .min_size(Vec2::new(90.0, 28.0)),
-                        )
-                        .clicked();
-                    let enter_pressed =
-                        resp.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                    if apply_clicked || enter_pressed {
-                        self.apply_version_input();
-                    }
                 });
-                if let Some(err) = &self.version_fetch_error {
-                    ui.colored_label(colors.danger, i18n.version_fetch_error(err));
-                }
-                if let Some(err) = &self.version_input_error {
-                    ui.colored_label(colors.danger, err);
-                }
-                ui.add_space(8.0);
-
-                ui.horizontal_wrapped(|ui| {
-                    let is_fetching = matches!(
-                        self.state,
-                        AppState::Downloading { .. } | AppState::CheckingForUpdates
-                    );
-                    let can_download = !is_fetching;
-                    let download_btn = egui::Button::new(i18n.download_button())
-                        .fill(colors.accent_soft)
-                        .stroke(Stroke::new(1.0, colors.accent))
-                        .min_size(Vec2::new(150.0, 34.0));
-                    if ui.add_enabled(can_download, download_btn).clicked() {
-                        self.trigger_action(UserAction::DownloadGame {
-                            target_version: self.selected_version,
-                        });
-                    }
-
-                    let can_check = !is_fetching;
-                    let check_btn = egui::Button::new(i18n.check_updates_button())
-                        .fill(colors.surface_elev)
-                        .stroke(Stroke::new(1.0, colors.border_strong))
-                        .min_size(Vec2::new(150.0, 34.0));
-                    if ui.add_enabled(can_check, check_btn).clicked() {
-                        self.trigger_action(UserAction::CheckForUpdates {
-                            target_version: self.selected_version,
-                        });
-                    }
-
-                    if matches!(self.state, AppState::Downloading { .. })
-                        && ui
-                            .add(
-                                egui::Button::new(i18n.cancel_button())
-                                    .fill(tint(colors.danger, 40))
-                                    .stroke(Stroke::new(1.0, colors.danger))
-                                    .min_size(Vec2::new(110.0, 32.0)),
-                            )
-                            .clicked()
-                    {
-                        self.trigger_action(UserAction::ClickCancelDownload);
-                    }
-                });
-
-                ui.add_space(6.0);
-                let is_busy = matches!(
-                    self.state,
-                    AppState::Downloading { .. }
-                        | AppState::CheckingForUpdates
-                        | AppState::DiagnosticsRunning
-                        | AppState::Playing
-                        | AppState::Uninstalling
-                        | AppState::Initialising
-                );
-                let uninstall_clicked = ui
-                    .add_enabled(
-                        !is_busy,
-                        egui::Button::new(i18n.uninstall_button())
-                            .fill(tint(colors.danger, 40))
-                            .stroke(Stroke::new(1.0, colors.danger))
-                            .min_size(Vec2::new(150.0, 32.0)),
-                    )
-                    .clicked();
-                if uninstall_clicked {
-                    self.show_uninstall_confirm = true;
-                }
-
-                ui.add_space(6.0);
-                if ui
-                    .add(
-                        egui::Button::new(i18n.run_diagnostics_button())
-                            .fill(colors.accent_soft)
-                            .stroke(Stroke::new(1.0, colors.accent))
-                            .min_size(Vec2::new(150.0, 32.0)),
-                    )
-                    .clicked()
-                {
-                    self.trigger_action(UserAction::RunDiagnostics);
-                }
-
-                ui.add_space(6.0);
-                let open_enabled = env::game_latest_dir().exists();
-                if ui
-                    .add_enabled(
-                        open_enabled,
-                        egui::Button::new(i18n.open_game_folder_button())
-                            .fill(colors.surface_elev)
-                            .stroke(Stroke::new(1.0, colors.border_strong))
-                            .min_size(Vec2::new(170.0, 32.0)),
-                    )
-                    .clicked()
-                {
-                    self.trigger_action(UserAction::OpenGameFolder);
-                }
-            });
+            }
         });
 
         if self.show_uninstall_confirm {
@@ -2506,23 +2546,26 @@ impl eframe::App for LauncherApp {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     let full_width = ui.available_width();
                     let gutter = 18.0;
-                    if full_width <= gutter {
+                    let is_compact = full_width < 1080.0;
+                    if is_compact {
                         self.render_status(ui, &colors, i18n);
                         ui.add_space(12.0);
                         self.render_controls(ui, &colors, i18n);
                         ui.add_space(12.0);
-                        self.render_mods(ui, &colors, i18n);
+                        self.render_diagnostics(ui, &colors, i18n);
                         ui.add_space(12.0);
                         self.render_news(ui, &colors, i18n);
-                        self.render_diagnostics(ui, &colors, i18n);
+                        ui.add_space(12.0);
+                        self.render_mods(ui, &colors, i18n);
                         return;
                     }
 
-                    let left_width = (full_width - gutter) * 0.42;
-                    let right_width = full_width - gutter - left_width;
+                    let sidebar_margin = 12.0;
+                    let main_width = (full_width - gutter - sidebar_margin) * 0.6;
+                    let sidebar_width = full_width - gutter - sidebar_margin - main_width;
                     ui.horizontal_top(|ui| {
                         ui.allocate_ui_with_layout(
-                            Vec2::new(left_width, 0.0),
+                            Vec2::new(main_width, 0.0),
                             Layout::top_down(Align::LEFT),
                             |ui| {
                                 self.render_status(ui, &colors, i18n);
@@ -2534,15 +2577,28 @@ impl eframe::App for LauncherApp {
                         );
                         ui.add_space(gutter);
                         ui.allocate_ui_with_layout(
-                            Vec2::new(right_width, 0.0),
+                            Vec2::new(sidebar_width, 0.0),
                             Layout::top_down(Align::LEFT),
                             |ui| {
-                                self.render_mods(ui, &colors, i18n);
+                                ui.allocate_ui_with_layout(
+                                    Vec2::new(sidebar_width - sidebar_margin, 0.0),
+                                    Layout::top_down(Align::LEFT),
+                                    |ui| {
+                                        self.render_news(ui, &colors, i18n);
+                                    },
+                                );
                             },
                         );
+                        ui.add_space(sidebar_margin);
                     });
                     ui.add_space(14.0);
-                    self.render_news(ui, &colors, i18n);
+                    ui.allocate_ui_with_layout(
+                        Vec2::new(full_width - sidebar_margin, 0.0),
+                        Layout::top_down(Align::LEFT),
+                        |ui| {
+                            self.render_mods(ui, &colors, i18n);
+                        },
+                    );
                 });
             });
         self.render_diagnostics_modal(ctx, &colors, i18n);
