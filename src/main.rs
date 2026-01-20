@@ -56,7 +56,7 @@ fn app_icon() -> eframe::egui::IconData {
 }
 
 fn load_app_icon() -> Option<eframe::egui::IconData> {
-    let bytes = include_bytes!("../AppIcon.icns");
+    let bytes = include_bytes!("../assets/AppIcon.icns");
     let family = IconFamily::read(Cursor::new(bytes)).ok()?;
 
     let mut best: Option<icns::Image> = None;

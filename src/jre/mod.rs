@@ -17,10 +17,10 @@ use tokio::io::AsyncWriteExt;
 use zip::read::ZipArchive;
 
 const JRE_CONFIG_URL: &str =
-    "https://raw.githubusercontent.com/RustedBytes/hrs-launcher/main/jre.json";
+    "https://raw.githubusercontent.com/RustedBytes/hrs-launcher/main/assets/jre.json";
 const LOCAL_JRE_CONFIG: &str = "jre.json";
 const JRE_VERSION: &str = "25";
-const EMBEDDED_JRE_CONFIG: &str = include_str!("../../jre.json");
+const EMBEDDED_JRE_CONFIG: &str = include_str!("../../assets/jre.json");
 const CANCELLED: &str = "Download cancelled";
 
 #[derive(Debug, Clone, Deserialize)]
