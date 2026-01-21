@@ -266,7 +266,7 @@ impl I18n {
             "ध्यान",
             "Внимание",
             "Dikkat",
-            "Attention",
+            "Attenzione",
         )
     }
 
@@ -362,7 +362,7 @@ impl I18n {
             "निदान चल रहा है...",
             "Выполняется диагностика...",
             "Tanılama çalışıyor...",
-            "Running diagnostics...",
+            "Diagnostica in esecuzione...",
         )
     }
 
@@ -378,7 +378,7 @@ impl I18n {
             "निदान पूरा हुआ।",
             "Диагностика завершена.",
             "Tanılama tamamlandı.",
-            "Diagnostics completed.",
+            "Diagnostica completata.",
         )
     }
 
@@ -394,7 +394,7 @@ impl I18n {
             "अभी कोई निदान रिपोर्ट उपलब्ध नहीं है।",
             "Отчет диагностики пока недоступен.",
             "Henüz bir tanılama raporu yok.",
-            "No diagnostics report available yet.",
+            "Nessun report di diagnostica disponibile.",
         )
     }
 
@@ -586,7 +586,7 @@ impl I18n {
             "क्रमबद्ध करें",
             "Сортировать по",
             "Sırala",
-            "Sort by",
+            "Ordina per",
         )
     }
 
@@ -602,7 +602,7 @@ impl I18n {
             "श्रेणी",
             "Категория",
             "Kategori",
-            "Category",
+            "Categoria",
         )
     }
 
@@ -618,7 +618,7 @@ impl I18n {
             "सभी श्रेणियाँ",
             "Все категории",
             "Tüm kategoriler",
-            "All categories",
+            "Tutte le categorie",
         )
     }
 
@@ -666,7 +666,7 @@ impl I18n {
             "कोई मॉड लोड नहीं हुआ। नाम से खोजने का प्रयास करें।",
             "Моды не загружены. Попробуйте поиск по названию.",
             "Mod yüklenmedi. İsimle aramayı deneyin.",
-            "No mods loaded. Try searching by name.",
+            "Nessuna mod caricata. Prova a cercare per nome.",
         )
     }
 
@@ -682,7 +682,7 @@ impl I18n {
             "वर्तमान फ़िल्टर से कोई मॉड मेल नहीं खाता।",
             "Нет модов, соответствующих текущим фильтрам.",
             "Mevcut filtrelere uyan mod yok.",
-            "No mods match the current filters.",
+            "Nessuna mod corrisponde ai filtri attuali.",
         )
     }
 
@@ -698,7 +698,7 @@ impl I18n {
             "इंस्टॉल किए गए मॉड्स",
             "Установленные моды",
             "Yüklü modlar",
-            "Installed mods",
+            "Mod installate",
         )
     }
 
@@ -714,7 +714,7 @@ impl I18n {
             "अभी तक कोई मॉड इंस्टॉल नहीं है।",
             "Моды еще не установлены.",
             "Henüz mod kurulmadı.",
-            "No mods installed yet.",
+            "Nessuna mod installata.",
         )
     }
 
@@ -746,7 +746,7 @@ impl I18n {
             "इंस्टॉल किए गए को रिफ्रेश करें",
             "Обновить список",
             "Yüklüleri yenile",
-            "Refresh installed",
+            "Aggiorna installate",
         )
     }
 
@@ -762,7 +762,7 @@ impl I18n {
             "हटाएं",
             "Удалить",
             "Kaldır",
-            "Remove",
+            "Rimuovi",
         )
     }
 
@@ -778,7 +778,7 @@ impl I18n {
             "मोड इंस्टॉल के लिए गेम इंस्टॉल करें।",
             "Установите игру, чтобы включить установку модов.",
             "Mod kurulumu için önce oyunu yükleyin.",
-            "Install the game to enable mod installs.",
+            "Installa il gioco per abilitare l'installazione delle mod.",
         )
     }
 
@@ -794,7 +794,7 @@ impl I18n {
             "मोड फ़ाइलें चुनें",
             "Выбрать файлы модов",
             "Mod dosyalarını seç",
-            "Select mod files",
+            "Seleziona file mod",
         )
     }
 
@@ -810,7 +810,7 @@ impl I18n {
             "मोड इंस्टॉल अस्थायी रूप से निष्क्रिय हैं।",
             "Установка модов временно недоступна.",
             "Mod kurulumu geçici olarak devre dışı.",
-            "Mod installs are temporarily disabled.",
+            "Installazione mod temporaneamente disabilitata.",
         )
     }
 
@@ -890,7 +890,7 @@ impl I18n {
             "लॉन्चर नियंत्रण",
             "Управление лаунчером",
             "Başlatıcı kontrolleri",
-            "Launcher controls",
+            "Controlli launcher",
         )
     }
 
@@ -906,7 +906,7 @@ impl I18n {
             "अपडेट प्रबंधित करें और खेलें",
             "Управляйте обновлениями и играйте",
             "Güncellemeleri yönetin ve oynayın",
-            "Manage updates & play",
+            "Gestisci aggiornamenti e gioca",
         )
     }
 
@@ -922,7 +922,7 @@ impl I18n {
             "खिलाड़ी का नाम",
             "Имя игрока",
             "Oyuncu adı",
-            "Player name",
+            "Nome giocatore",
         )
     }
 
@@ -938,7 +938,7 @@ impl I18n {
             "खिलाड़ी",
             "Игрок",
             "Oyuncu",
-            "Гравець",
+            "Giocatore",
         )
     }
 
@@ -986,7 +986,7 @@ impl I18n {
             "प्रमाणीकरण मोड",
             "Режим аутентификации",
             "Kimlik doğrulama modu",
-            "Auth mode",
+            "Modalità autenticazione",
         )
     }
 
@@ -1029,7 +1029,7 @@ impl I18n {
             "गेम संस्करण",
             "Версия игры",
             "Oyun sürümü",
-            "Game version",
+            "Versione gioco",
         )
     }
 
@@ -1076,7 +1076,7 @@ impl I18n {
             "सूची रिफ्रेश करें",
             "Обновить список",
             "Listeyi yenile",
-            "Refresh list",
+            "Aggiorna lista",
         )
     }
 
@@ -1092,7 +1092,7 @@ impl I18n {
             "कस्टम संस्करण",
             "Пользовательская версия",
             "Özel sürüm",
-            "Custom version",
+            "Versione personalizzata",
         )
     }
 
@@ -1108,7 +1108,7 @@ impl I18n {
             "उदा. 3",
             "например, 3",
             "örn. 3",
-            "e.g. 3",
+            "es. 3",
         )
     }
 
@@ -1124,7 +1124,7 @@ impl I18n {
             "संस्करण सेट करें",
             "Установить версию",
             "Sürümü ayarla",
-            "Set version",
+            "Imposta versione",
         )
     }
 
@@ -1156,7 +1156,7 @@ impl I18n {
             "कृपया एक मान्य संस्करण संख्या दर्ज करें।",
             "Введите корректный номер версии.",
             "Geçerli bir sürüm numarası girin.",
-            "Enter a valid version number.",
+            "Inserisci un numero di versione valido.",
         )
     }
 
@@ -1188,7 +1188,7 @@ impl I18n {
             "गेम फ़ोल्डर खोलें",
             "Открыть папку игры",
             "Oyun klasörünü aç",
-            "Open game folder",
+            "Apri cartella gioco",
         )
     }
 
@@ -1220,7 +1220,7 @@ impl I18n {
             "रिपोर्ट देखें",
             "Просмотреть отчет",
             "Raporu görüntüle",
-            "View report",
+            "Visualizza report",
         )
     }
 
@@ -1236,7 +1236,7 @@ impl I18n {
             "अपडेट की जाँच हो रही है...",
             "Проверка обновлений...",
             "Güncellemeler kontrol ediliyor...",
-            "Checking for updates...",
+            "Controllo aggiornamenti in corso...",
         )
     }
 
@@ -1268,7 +1268,7 @@ impl I18n {
             "गेम फ़ाइलें हटाई जा रही हैं...",
             "Удаляем файлы игры...",
             "Oyun dosyaları kaldırılıyor...",
-            "Removing game files...",
+            "Rimozione file di gioco in corso...",
         )
     }
 
@@ -1304,7 +1304,7 @@ impl I18n {
             "Hytale शुरू किया जा रहा है...",
             "Запуск Hytale...",
             "Hytale başlatılıyor...",
-            "Launching Hytale...",
+            "Avvio di Hytale in corso...",
         )
     }
 
@@ -1336,7 +1336,7 @@ impl I18n {
             "लॉन्चर प्रारंभ किया जा रहा है...",
             "Инициализация лаунчера...",
             "Başlatıcı başlatılıyor...",
-            "Initialising launcher...",
+            "Inizializzazione launcher in corso...",
         )
     }
 
@@ -1352,7 +1352,7 @@ impl I18n {
             "निष्क्रिय। इंस्टॉल या अपडेट करने के लिए डाउनलोड गेम पर क्लिक करें।",
             "Ожидание. Нажмите \"Скачать игру\", чтобы установить или обновить.",
             "Boşta. Yüklemek veya güncellemek için Oyunu İndir'e tıklayın.",
-            "Idle. Click Download Game to install or update.",
+            "Inattivo. Clicca Scarica Gioco per installare o aggiornare.",
         )
     }
 
@@ -1368,7 +1368,7 @@ impl I18n {
             "खेलें",
             "Играть",
             "Oyna",
-            "Play",
+            "Gioca",
         )
     }
 
@@ -1384,7 +1384,7 @@ impl I18n {
             "गेम डाउनलोड करें",
             "Скачать игру",
             "Oyunu indir",
-            "Download Game",
+            "Scarica Gioco",
         )
     }
 
@@ -1480,7 +1480,7 @@ impl I18n {
             "हाँ, अनइंस्टॉल करें",
             "Да, удалить",
             "Evet, kaldır",
-            "Yes, uninstall",
+            "Sì, disinstalla",
         )
     }
 
