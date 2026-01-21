@@ -8,12 +8,15 @@ use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use futures_util::StreamExt;
-use log::warn;
+use log::{debug, info, warn};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
+use walkdir::WalkDir;
+use zip::ZipArchive;
 
+use crate::env;
 use crate::util::{cancel_requested, format_speed};
 
 const CURSE_FORGE_BASE: &str = "https://api.curseforge.com/v1";
@@ -464,6 +467,192 @@ impl ModService {
             ));
         }
         Ok(())
+    }
+
+    /// Apply all enabled mods to the game folder.
+    /// Extracts mods with "install/release" structure and copies files to game's release folder.
+    pub async fn apply_enabled_mods(&self) -> Result<(), String> {
+        let manifest = self.load_manifest().await?;
+        let game_release_dir = env::default_app_dir().join("release");
+        
+        // Verify game installation by checking key directories
+        if !game_release_dir.exists() || !game_release_dir.join("package").exists() {
+            return Err("Game not installed. Install the game before applying mods.".into());
+        }
+
+        for mod_entry in manifest.mods.iter().filter(|m| m.enabled) {
+            let mod_path = PathBuf::from(&mod_entry.file_path);
+            if !mod_path.exists() {
+                warn!(
+                    "Mod file not found for {}: {}",
+                    mod_entry.name,
+                    mod_path.display()
+                );
+                continue;
+            }
+
+            info!("Applying mod: {}", mod_entry.name);
+            self.extract_and_apply_mod(&mod_path, &game_release_dir)
+                .await
+                .map_err(|e| format!("Failed to apply mod {}: {}", mod_entry.name, e))?;
+        }
+
+        Ok(())
+    }
+
+    /// Extract a mod archive and apply it to the game folder.
+    /// Looks for "install/release" structure inside the mod archive.
+    async fn extract_and_apply_mod(
+        &self,
+        mod_archive: &Path,
+        game_release_dir: &Path,
+    ) -> Result<(), String> {
+        // Use a unique temporary directory to avoid conflicts
+        let temp_extract_dir = self.mods_dir.join(format!(
+            ".temp_extract_{}",
+            chrono::Utc::now().timestamp_millis()
+        ));
+        if temp_extract_dir.exists() {
+            fs::remove_dir_all(&temp_extract_dir)
+                .await
+                .map_err(|e| format!("Failed to clean temp extraction dir: {e}"))?;
+        }
+
+        fs::create_dir_all(&temp_extract_dir)
+            .await
+            .map_err(|e| format!("Failed to create temp extraction dir: {e}"))?;
+
+        // Extract the archive
+        self.extract_zip_archive(mod_archive, &temp_extract_dir)
+            .await?;
+
+        // Look for "install/release" structure
+        let install_release_path = temp_extract_dir.join("install").join("release");
+        
+        if install_release_path.exists() {
+            debug!(
+                "Found install/release structure in mod, copying to game release folder"
+            );
+            self.copy_dir_recursive(&install_release_path, game_release_dir)
+                .await?;
+        } else {
+            debug!(
+                "No install/release structure found in mod, skipping application"
+            );
+        }
+
+        // Cleanup temp directory
+        fs::remove_dir_all(&temp_extract_dir)
+            .await
+            .map_err(|e| format!("Failed to cleanup temp extraction dir: {e}"))?;
+
+        Ok(())
+    }
+
+    /// Extract a ZIP archive to a destination directory.
+    async fn extract_zip_archive(
+        &self,
+        archive_path: &Path,
+        dest_dir: &Path,
+    ) -> Result<(), String> {
+        let archive_path = archive_path.to_owned();
+        let dest_dir = dest_dir.to_owned();
+
+        // ZIP extraction is blocking, so run it in a blocking task
+        tokio::task::spawn_blocking(move || {
+            let file = std::fs::File::open(&archive_path)
+                .map_err(|e| format!("Failed to open archive: {e}"))?;
+            
+            let mut archive = ZipArchive::new(file)
+                .map_err(|e| format!("Failed to read ZIP archive: {e}"))?;
+
+            for i in 0..archive.len() {
+                let mut file = archive
+                    .by_index(i)
+                    .map_err(|e| format!("Failed to access file in archive: {e}"))?;
+                
+                let outpath = match file.enclosed_name() {
+                    Some(path) => dest_dir.join(path),
+                    None => continue,
+                };
+
+                if file.name().ends_with('/') {
+                    // Directory
+                    std::fs::create_dir_all(&outpath)
+                        .map_err(|e| format!("Failed to create directory: {e}"))?;
+                } else {
+                    // File
+                    if let Some(parent) = outpath.parent() {
+                        std::fs::create_dir_all(parent)
+                            .map_err(|e| format!("Failed to create parent directory: {e}"))?;
+                    }
+                    let mut outfile = std::fs::File::create(&outpath)
+                        .map_err(|e| format!("Failed to create file: {e}"))?;
+                    std::io::copy(&mut file, &mut outfile)
+                        .map_err(|e| format!("Failed to extract file: {e}"))?;
+                }
+
+                // Set permissions on Unix
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    if let Some(mode) = file.unix_mode()
+                        && let Err(err) = std::fs::set_permissions(&outpath, std::fs::Permissions::from_mode(mode))
+                    {
+                        log::warn!("Failed to set permissions for {}: {}", outpath.display(), err);
+                    }
+                }
+            }
+
+            Ok::<(), String>(())
+        })
+        .await
+        .map_err(|e| {
+            if e.is_panic() {
+                format!("ZIP extraction task panicked: {e}")
+            } else {
+                format!("ZIP extraction task cancelled: {e}")
+            }
+        })?
+    }
+
+    /// Recursively copy a directory and its contents to a destination.
+    async fn copy_dir_recursive(&self, src: &Path, dst: &Path) -> Result<(), String> {
+        let src = src.to_owned();
+        let dst = dst.to_owned();
+
+        tokio::task::spawn_blocking(move || {
+            for entry in WalkDir::new(&src).min_depth(1) {
+                let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
+                let path = entry.path();
+                
+                let relative_path = path
+                    .strip_prefix(&src)
+                    .map_err(|e| format!("Failed to compute relative path: {e}"))?;
+                let target_path = dst.join(relative_path);
+
+                if entry.file_type().is_dir() {
+                    std::fs::create_dir_all(&target_path)
+                        .map_err(|e| format!("Failed to create directory {}: {e}", target_path.display()))?;
+                } else {
+                    if let Some(parent) = target_path.parent() {
+                        std::fs::create_dir_all(parent)
+                            .map_err(|e| format!("Failed to create parent directory: {e}"))?;
+                    }
+                    std::fs::copy(path, &target_path)
+                        .map_err(|e| format!("Failed to copy file {}: {e}", path.display()))?;
+                }
+            }
+            Ok::<(), String>(())
+        })
+        .await
+        .map_err(|e| {
+            if e.is_panic() {
+                format!("Directory copy task panicked: {e}")
+            } else {
+                format!("Directory copy task cancelled: {e}")
+            }
+        })?
     }
 }
 
