@@ -475,7 +475,8 @@ impl ModService {
         let manifest = self.load_manifest().await?;
         let game_release_dir = env::default_app_dir().join("release");
         
-        if !game_release_dir.exists() {
+        // Verify game installation by checking key directories
+        if !game_release_dir.exists() || !game_release_dir.join("package").exists() {
             return Err("Game not installed. Install the game before applying mods.".into());
         }
 
@@ -506,7 +507,11 @@ impl ModService {
         mod_archive: &Path,
         game_release_dir: &Path,
     ) -> Result<(), String> {
-        let temp_extract_dir = self.mods_dir.join(".temp_extract");
+        // Use a unique temporary directory to avoid conflicts
+        let temp_extract_dir = self.mods_dir.join(format!(
+            ".temp_extract_{}",
+            chrono::Utc::now().timestamp_millis()
+        ));
         if temp_extract_dir.exists() {
             fs::remove_dir_all(&temp_extract_dir)
                 .await
@@ -591,9 +596,10 @@ impl ModService {
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;
-                    if let Some(mode) = file.unix_mode() {
-                        std::fs::set_permissions(&outpath, std::fs::Permissions::from_mode(mode))
-                            .ok();
+                    if let Some(mode) = file.unix_mode()
+                        && let Err(err) = std::fs::set_permissions(&outpath, std::fs::Permissions::from_mode(mode))
+                    {
+                        log::warn!("Failed to set permissions for {}: {}", outpath.display(), err);
                     }
                 }
             }
@@ -601,7 +607,13 @@ impl ModService {
             Ok::<(), String>(())
         })
         .await
-        .map_err(|e| format!("ZIP extraction task failed: {e}"))?
+        .map_err(|e| {
+            if e.is_panic() {
+                format!("ZIP extraction task panicked: {e}")
+            } else {
+                format!("ZIP extraction task cancelled: {e}")
+            }
+        })?
     }
 
     /// Recursively copy a directory and its contents to a destination.
@@ -634,7 +646,13 @@ impl ModService {
             Ok::<(), String>(())
         })
         .await
-        .map_err(|e| format!("Directory copy task failed: {e}"))?
+        .map_err(|e| {
+            if e.is_panic() {
+                format!("Directory copy task panicked: {e}")
+            } else {
+                format!("Directory copy task cancelled: {e}")
+            }
+        })?
     }
 }
 
