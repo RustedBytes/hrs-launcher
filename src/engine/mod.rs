@@ -146,6 +146,16 @@ impl LauncherEngine {
                         error!("play failed: {}", self.error_summary());
                         return;
                     }
+                    
+                    // Apply enabled mods before launching the game
+                    info!("Applying enabled mods...");
+                    if let Err(err) = self.mods.apply_enabled_mods().await {
+                        warn!("Failed to apply mods: {}", err);
+                        // Continue anyway - mods are optional
+                    } else {
+                        info!("Mods applied successfully");
+                    }
+                    
                     updates.send(AppState::Playing).ok();
                     self.state = AppState::Playing;
                     if let Err(err) =
