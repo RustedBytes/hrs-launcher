@@ -14,6 +14,7 @@ pub enum Language {
     Hindi,
     Russian,
     Turkish,
+    Italian,
 }
 
 impl Language {
@@ -29,6 +30,7 @@ impl Language {
             Language::Hindi => "Hindi",
             Language::Russian => "Russian",
             Language::Turkish => "Turkish",
+            Language::Italian => "Italian",
         }
     }
 }
@@ -58,6 +60,7 @@ impl I18n {
         hindi: &'a str,
         russian: &'a str,
         turkish: &'a str,
+        italian: &'a str,
     ) -> &'a str {
         match self.language {
             Language::English => english,
@@ -70,6 +73,7 @@ impl I18n {
             Language::Hindi => hindi,
             Language::Russian => russian,
             Language::Turkish => turkish,
+            Language::Italian => italian,
         }
     }
 
@@ -85,6 +89,7 @@ impl I18n {
             (Theme::Dark, Language::Hindi) => "डार्क",
             (Theme::Dark, Language::Russian) => "Темная",
             (Theme::Dark, Language::Turkish) => "Koyu",
+            (Theme::Dark, Language::Italian) => "Scuro",
             (Theme::Light, Language::English) => "Light",
             (Theme::Light, Language::Ukrainian) => "Світла",
             (Theme::Light, Language::Spanish) => "Claro",
@@ -95,6 +100,7 @@ impl I18n {
             (Theme::Light, Language::Hindi) => "लाइट",
             (Theme::Light, Language::Russian) => "Светлая",
             (Theme::Light, Language::Turkish) => "Açık",
+            (Theme::Light, Language::Italian) => "Chiaro",
         }
     }
 
@@ -110,6 +116,7 @@ impl I18n {
             (ModSort::Downloads, Language::Hindi) => "सबसे अधिक डाउनलोड",
             (ModSort::Downloads, Language::Russian) => "Самые скачиваемые",
             (ModSort::Downloads, Language::Turkish) => "En çok indirilen",
+            (ModSort::Downloads, Language::Italian) => "Più scaricati",
             (ModSort::Updated, Language::English) => "Recently updated",
             (ModSort::Updated, Language::Ukrainian) => "Нещодавно оновлені",
             (ModSort::Updated, Language::Spanish) => "Actualizados recientemente",
@@ -120,6 +127,7 @@ impl I18n {
             (ModSort::Updated, Language::Hindi) => "हाल ही में अपडेट किए गए",
             (ModSort::Updated, Language::Russian) => "Недавно обновленные",
             (ModSort::Updated, Language::Turkish) => "Son güncellenen",
+            (ModSort::Updated, Language::Italian) => "Aggiornati di recente",
             (ModSort::Name, Language::English) => "Name A-Z",
             (ModSort::Name, Language::Ukrainian) => "Назва A-Z",
             (ModSort::Name, Language::Spanish) => "Nombre A-Z",
@@ -130,6 +138,7 @@ impl I18n {
             (ModSort::Name, Language::Hindi) => "नाम A-Z",
             (ModSort::Name, Language::Russian) => "Имя A-Z",
             (ModSort::Name, Language::Turkish) => "İsim A-Z",
+            (ModSort::Name, Language::Italian) => "Nome A-Z",
         }
     }
 
@@ -145,6 +154,7 @@ impl I18n {
             "HRS लॉन्चर",
             "HRS лаунчер",
             "HRS Başlatıcı",
+            "HRS Launcher",
         )
     }
 
@@ -160,6 +170,7 @@ impl I18n {
             "Hytale के लिए सामुदायिक लॉन्चर",
             "Сообщественный лаунчер для Hytale",
             "Hytale için topluluk başlatıcısı",
+            "Launcher comunitario per Hytale",
         )
     }
 
@@ -175,6 +186,7 @@ impl I18n {
             Language::Hindi => format!("लॉन्चर v{version}"),
             Language::Russian => format!("Лаунчер v{version}"),
             Language::Turkish => format!("Başlatıcı v{version}"),
+            Language::Italian => format!("Launcher v{version}"),
         }
     }
 
@@ -190,6 +202,7 @@ impl I18n {
             "हमारे Discord सर्वर से जुड़ें",
             "Присоединиться к нашему серверу Discord",
             "Discord sunucumuza katılın",
+            "Unisciti al nostro server Discord",
         )
     }
 
@@ -205,6 +218,7 @@ impl I18n {
             "स्थिति",
             "Статус",
             "Durum",
+            "Stato",
         )
     }
 
@@ -220,6 +234,7 @@ impl I18n {
             "तैयार",
             "Готово",
             "Hazır",
+            "Pronto",
         )
     }
 
@@ -235,6 +250,7 @@ impl I18n {
             "चल रहा है",
             "Выполняется",
             "Çalışıyor",
+            "In esecuzione",
         )
     }
 
@@ -250,6 +266,7 @@ impl I18n {
             "ध्यान",
             "Внимание",
             "Dikkat",
+            "Attenzione",
         )
     }
 
@@ -265,6 +282,7 @@ impl I18n {
             "डाउनलोड हो रहा है",
             "Загрузка",
             "İndiriliyor",
+            "Download in corso",
         )
     }
 
@@ -280,6 +298,7 @@ impl I18n {
             "अनइंस्टॉल किया जा रहा है",
             "Удаление",
             "Kaldırılıyor",
+            "Disinstallazione in corso",
         )
     }
 
@@ -295,6 +314,7 @@ impl I18n {
             "निदान",
             "Диагностика",
             "Tanılama",
+            "Diagnostica",
         )
     }
 
@@ -310,6 +330,7 @@ impl I18n {
             "काम चल रहा है",
             "В работе",
             "İşleniyor",
+            "In lavorazione",
         )
     }
 
@@ -325,6 +346,7 @@ impl I18n {
             "रिफ्रेश",
             "Обновить",
             "Yenile",
+            "Aggiorna",
         )
     }
 
@@ -340,6 +362,7 @@ impl I18n {
             "निदान चल रहा है...",
             "Выполняется диагностика...",
             "Tanılama çalışıyor...",
+            "Diagnostica in esecuzione...",
         )
     }
 
@@ -355,6 +378,7 @@ impl I18n {
             "निदान पूरा हुआ।",
             "Диагностика завершена.",
             "Tanılama tamamlandı.",
+            "Diagnostica completata.",
         )
     }
 
@@ -370,6 +394,7 @@ impl I18n {
             "अभी कोई निदान रिपोर्ट उपलब्ध नहीं है।",
             "Отчет диагностики пока недоступен.",
             "Henüz bir tanılama raporu yok.",
+            "Nessun report di diagnostica disponibile.",
         )
     }
 
@@ -385,6 +410,7 @@ impl I18n {
             "बंद करें",
             "Закрыть",
             "Kapat",
+            "Chiudi",
         )
     }
 
@@ -400,6 +426,7 @@ impl I18n {
             "Hytale में क्या हो रहा है",
             "Что происходит в Hytale",
             "Hytale'da neler oluyor",
+            "Cosa sta succedendo in Hytale",
         )
     }
 
@@ -415,6 +442,7 @@ impl I18n {
             "अपडेट हो रहा है...",
             "Обновление...",
             "Güncelleniyor...",
+            "Aggiornamento in corso...",
         )
     }
 
@@ -430,6 +458,7 @@ impl I18n {
             Language::Hindi => format!("समाचार लाने में विफल: {err}"),
             Language::Russian => format!("Не удалось получить новости: {err}"),
             Language::Turkish => format!("Haberler alınamadı: {err}"),
+            Language::Italian => format!("Impossibile caricare le notizie: {err}"),
         }
     }
 
@@ -445,6 +474,7 @@ impl I18n {
             "अधिक जानकारी hytale.com पर।",
             "Подробнее на hytale.com.",
             "Daha fazlası için hytale.com.",
+            "Детальніше на hytale.com.",
         )
     }
 
@@ -460,6 +490,7 @@ impl I18n {
             "मोड्स",
             "Моды",
             "Modlar",
+            "Mod",
         )
     }
 
@@ -475,6 +506,7 @@ impl I18n {
             "खोज रहे हैं...",
             "Поиск...",
             "Aranıyor...",
+            "Ricerca in corso...",
         )
     }
 
@@ -490,6 +522,7 @@ impl I18n {
             Language::Hindi => format!("{count} परिणाम"),
             Language::Russian => format!("{count} результатов"),
             Language::Turkish => format!("{count} sonuç"),
+            Language::Italian => format!("{count} risultati"),
         }
     }
 
@@ -505,6 +538,7 @@ impl I18n {
             "नाम या कीवर्ड से खोजें...",
             "Поиск по названию или ключевому слову...",
             "Ada veya anahtar kelimeye göre arayın...",
+            "Cerca per nome o parola chiave...",
         )
     }
 
@@ -520,6 +554,7 @@ impl I18n {
             "खोजें",
             "Поиск",
             "Ara",
+            "Cerca",
         )
     }
 
@@ -535,6 +570,7 @@ impl I18n {
             "साफ़ करें",
             "Очистить",
             "Temizle",
+            "Cancella",
         )
     }
 
@@ -550,6 +586,7 @@ impl I18n {
             "क्रमबद्ध करें",
             "Сортировать по",
             "Sırala",
+            "Ordina per",
         )
     }
 
@@ -565,6 +602,7 @@ impl I18n {
             "श्रेणी",
             "Категория",
             "Kategori",
+            "Categoria",
         )
     }
 
@@ -580,6 +618,7 @@ impl I18n {
             "सभी श्रेणियाँ",
             "Все категории",
             "Tüm kategoriler",
+            "Tutte le categorie",
         )
     }
 
@@ -595,6 +634,7 @@ impl I18n {
             Language::Hindi => format!("{visible}/{total} मॉड दिखा रहे हैं"),
             Language::Russian => format!("Показано {visible} из {total} модов"),
             Language::Turkish => format!("{total} modun {visible} tanesi gösteriliyor"),
+            Language::Italian => format!("Mostrate {visible} di {total} mod"),
         }
     }
 
@@ -610,6 +650,7 @@ impl I18n {
             Language::Hindi => format!("खोज विफल: {err}"),
             Language::Russian => format!("Ошибка поиска: {err}"),
             Language::Turkish => format!("Arama başarısız: {err}"),
+            Language::Italian => format!("Ricerca fallita: {err}"),
         }
     }
 
@@ -625,6 +666,7 @@ impl I18n {
             "कोई मॉड लोड नहीं हुआ। नाम से खोजने का प्रयास करें।",
             "Моды не загружены. Попробуйте поиск по названию.",
             "Mod yüklenmedi. İsimle aramayı deneyin.",
+            "Nessuna mod caricata. Prova a cercare per nome.",
         )
     }
 
@@ -640,6 +682,7 @@ impl I18n {
             "वर्तमान फ़िल्टर से कोई मॉड मेल नहीं खाता।",
             "Нет модов, соответствующих текущим фильтрам.",
             "Mevcut filtrelere uyan mod yok.",
+            "Nessuna mod corrisponde ai filtri attuali.",
         )
     }
 
@@ -655,6 +698,7 @@ impl I18n {
             "इंस्टॉल किए गए मॉड्स",
             "Установленные моды",
             "Yüklü modlar",
+            "Mod installate",
         )
     }
 
@@ -670,6 +714,7 @@ impl I18n {
             "अभी तक कोई मॉड इंस्टॉल नहीं है।",
             "Моды еще не установлены.",
             "Henüz mod kurulmadı.",
+            "Nessuna mod installata.",
         )
     }
 
@@ -685,6 +730,7 @@ impl I18n {
             Language::Hindi => format!("इंस्टॉल किए गए मॉड प्राप्त करने में त्रुटि: {err}"),
             Language::Russian => format!("Не удалось получить установленные моды: {err}"),
             Language::Turkish => format!("Yüklü modlar alınamadı: {err}"),
+            Language::Italian => format!("Impossibile caricare le mod installate: {err}"),
         }
     }
 
@@ -700,6 +746,7 @@ impl I18n {
             "इंस्टॉल किए गए को रिफ्रेश करें",
             "Обновить список",
             "Yüklüleri yenile",
+            "Aggiorna installate",
         )
     }
 
@@ -715,6 +762,7 @@ impl I18n {
             "हटाएं",
             "Удалить",
             "Kaldır",
+            "Rimuovi",
         )
     }
 
@@ -730,6 +778,7 @@ impl I18n {
             "मोड इंस्टॉल के लिए गेम इंस्टॉल करें।",
             "Установите игру, чтобы включить установку модов.",
             "Mod kurulumu için önce oyunu yükleyin.",
+            "Installa il gioco per abilitare l'installazione delle mod.",
         )
     }
 
@@ -745,6 +794,7 @@ impl I18n {
             "मोड फ़ाइलें चुनें",
             "Выбрать файлы модов",
             "Mod dosyalarını seç",
+            "Seleziona file mod",
         )
     }
 
@@ -760,6 +810,7 @@ impl I18n {
             "मोड इंस्टॉल अस्थायी रूप से निष्क्रिय हैं।",
             "Установка модов временно недоступна.",
             "Mod kurulumu geçici olarak devre dışı.",
+            "Installazione mod temporaneamente disabilitata.",
         )
     }
 
@@ -775,6 +826,7 @@ impl I18n {
             "इंस्टॉल करें",
             "Установить",
             "Yükle",
+            "Installa",
         )
     }
 
@@ -790,6 +842,7 @@ impl I18n {
             Language::Hindi => format!("डाउनलोड {downloads}"),
             Language::Russian => format!("Загрузки {downloads}"),
             Language::Turkish => format!("İndirme {downloads}"),
+            Language::Italian => format!("Download {downloads}"),
         }
     }
 
@@ -805,6 +858,7 @@ impl I18n {
             Language::Hindi => format!("{updated} को अपडेट किया गया"),
             Language::Russian => format!("Обновлено {updated}"),
             Language::Turkish => format!("{updated} güncellendi"),
+            Language::Italian => format!("Aggiornata {updated}"),
         }
     }
 
@@ -820,6 +874,7 @@ impl I18n {
             Language::Hindi => format!("{authors} द्वारा"),
             Language::Russian => format!("От {authors}"),
             Language::Turkish => format!("{authors} tarafından"),
+            Language::Italian => format!("Di {authors}"),
         }
     }
 
@@ -835,6 +890,7 @@ impl I18n {
             "लॉन्चर नियंत्रण",
             "Управление лаунчером",
             "Başlatıcı kontrolleri",
+            "Controlli launcher",
         )
     }
 
@@ -850,6 +906,7 @@ impl I18n {
             "अपडेट प्रबंधित करें और खेलें",
             "Управляйте обновлениями и играйте",
             "Güncellemeleri yönetin ve oynayın",
+            "Gestisci aggiornamenti e gioca",
         )
     }
 
@@ -865,6 +922,7 @@ impl I18n {
             "खिलाड़ी का नाम",
             "Имя игрока",
             "Oyuncu adı",
+            "Nome giocatore",
         )
     }
 
@@ -880,6 +938,7 @@ impl I18n {
             "खिलाड़ी",
             "Игрок",
             "Oyuncu",
+            "Giocatore",
         )
     }
 
@@ -895,6 +954,7 @@ impl I18n {
             "सहेजें",
             "Сохранить",
             "Kaydet",
+            "Salva",
         )
     }
 
@@ -910,6 +970,7 @@ impl I18n {
             Language::Hindi => format!("खिलाड़ी का नाम: {err}"),
             Language::Russian => format!("Имя игрока: {err}"),
             Language::Turkish => format!("Oyuncu adı: {err}"),
+            Language::Italian => format!("Nome giocatore: {err}"),
         }
     }
 
@@ -925,6 +986,7 @@ impl I18n {
             "प्रमाणीकरण मोड",
             "Режим аутентификации",
             "Kimlik doğrulama modu",
+            "Modalità autenticazione",
         )
     }
 
@@ -940,6 +1002,7 @@ impl I18n {
             (AuthMode::Offline, Language::Hindi) => "ऑफ़लाइन",
             (AuthMode::Offline, Language::Russian) => "Офлайн",
             (AuthMode::Offline, Language::Turkish) => "Çevrimdışı",
+            (AuthMode::Offline, Language::Italian) => "Offline",
             (AuthMode::Online, Language::English) => "Online",
             (AuthMode::Online, Language::Ukrainian) => "Онлайн",
             (AuthMode::Online, Language::Spanish) => "En línea",
@@ -950,6 +1013,7 @@ impl I18n {
             (AuthMode::Online, Language::Hindi) => "ऑनलाइन",
             (AuthMode::Online, Language::Russian) => "Онлайн",
             (AuthMode::Online, Language::Turkish) => "Çevrimiçi",
+            (AuthMode::Online, Language::Italian) => "Online",
         }
     }
 
@@ -965,6 +1029,7 @@ impl I18n {
             "गेम संस्करण",
             "Версия игры",
             "Oyun sürümü",
+            "Versione gioco",
         )
     }
 
@@ -980,6 +1045,7 @@ impl I18n {
             (Some(v), Language::Hindi) => format!("नवीनतम (v{v})"),
             (Some(v), Language::Russian) => format!("Последняя (v{v})"),
             (Some(v), Language::Turkish) => format!("En son (v{v})"),
+            (Some(v), Language::Italian) => format!("Ultima (v{v})"),
             (None, Language::English) => "Latest".into(),
             (None, Language::Ukrainian) => "Остання".into(),
             (None, Language::Spanish) => "Última".into(),
@@ -990,6 +1056,7 @@ impl I18n {
             (None, Language::Hindi) => "नवीनतम".into(),
             (None, Language::Russian) => "Последняя".into(),
             (None, Language::Turkish) => "En son".into(),
+            (None, Language::Italian) => "Ultima".into(),
         }
     }
 
@@ -1009,6 +1076,7 @@ impl I18n {
             "सूची रिफ्रेश करें",
             "Обновить список",
             "Listeyi yenile",
+            "Aggiorna lista",
         )
     }
 
@@ -1024,6 +1092,7 @@ impl I18n {
             "कस्टम संस्करण",
             "Пользовательская версия",
             "Özel sürüm",
+            "Versione personalizzata",
         )
     }
 
@@ -1039,6 +1108,7 @@ impl I18n {
             "उदा. 3",
             "например, 3",
             "örn. 3",
+            "es. 3",
         )
     }
 
@@ -1054,6 +1124,7 @@ impl I18n {
             "संस्करण सेट करें",
             "Установить версию",
             "Sürümü ayarla",
+            "Imposta versione",
         )
     }
 
@@ -1069,6 +1140,7 @@ impl I18n {
             Language::Hindi => format!("संस्करण सूची प्राप्त करने में विफल: {err}"),
             Language::Russian => format!("Не удалось получить список версий: {err}"),
             Language::Turkish => format!("Sürüm listesi alınamadı: {err}"),
+            Language::Italian => format!("Impossibile caricare la lista delle versioni: {err}"),
         }
     }
 
@@ -1084,6 +1156,7 @@ impl I18n {
             "कृपया एक मान्य संस्करण संख्या दर्ज करें।",
             "Введите корректный номер версии.",
             "Geçerli bir sürüm numarası girin.",
+            "Inserisci un numero di versione valido.",
         )
     }
 
@@ -1099,6 +1172,7 @@ impl I18n {
             "निदान चलाएं",
             "Запустить диагностику",
             "Tanılama çalıştır",
+            "Esegui diagnostica",
         )
     }
 
@@ -1114,6 +1188,7 @@ impl I18n {
             "गेम फ़ोल्डर खोलें",
             "Открыть папку игры",
             "Oyun klasörünü aç",
+            "Apri cartella gioco",
         )
     }
 
@@ -1129,6 +1204,7 @@ impl I18n {
             "निदान",
             "Диагностика",
             "Tanılama",
+            "Diagnostica",
         )
     }
 
@@ -1144,6 +1220,7 @@ impl I18n {
             "रिपोर्ट देखें",
             "Просмотреть отчет",
             "Raporu görüntüle",
+            "Visualizza report",
         )
     }
 
@@ -1159,6 +1236,7 @@ impl I18n {
             "अपडेट की जाँच हो रही है...",
             "Проверка обновлений...",
             "Güncellemeler kontrol ediliyor...",
+            "Controllo aggiornamenti in corso...",
         )
     }
 
@@ -1174,6 +1252,7 @@ impl I18n {
             Language::Hindi => format!("{file} डाउनलोड हो रहा है"),
             Language::Russian => format!("Загрузка {file}"),
             Language::Turkish => format!("{file} indiriliyor"),
+            Language::Italian => format!("Download di {file} in corso"),
         }
     }
 
@@ -1189,6 +1268,7 @@ impl I18n {
             "गेम फ़ाइलें हटाई जा रही हैं...",
             "Удаляем файлы игры...",
             "Oyun dosyaları kaldırılıyor...",
+            "Rimozione file di gioco in corso...",
         )
     }
 
@@ -1208,6 +1288,7 @@ impl I18n {
             Language::Hindi => format!("संस्करण {version} खेलने के लिए तैयार"),
             Language::Russian => format!("Готово к игре версии {version}"),
             Language::Turkish => format!("{version} sürümünü oynamaya hazır"),
+            Language::Italian => format!("Pronto per giocare alla versione {version}"),
         }
     }
 
@@ -1223,6 +1304,7 @@ impl I18n {
             "Hytale शुरू किया जा रहा है...",
             "Запуск Hytale...",
             "Hytale başlatılıyor...",
+            "Avvio di Hytale in corso...",
         )
     }
 
@@ -1238,6 +1320,7 @@ impl I18n {
             Language::Hindi => format!("त्रुटि: {msg}"),
             Language::Russian => format!("Ошибка: {msg}"),
             Language::Turkish => format!("Hata: {msg}"),
+            Language::Italian => format!("Errore: {msg}"),
         }
     }
 
@@ -1253,6 +1336,7 @@ impl I18n {
             "लॉन्चर प्रारंभ किया जा रहा है...",
             "Инициализация лаунчера...",
             "Başlatıcı başlatılıyor...",
+            "Inizializzazione launcher in corso...",
         )
     }
 
@@ -1268,6 +1352,7 @@ impl I18n {
             "निष्क्रिय। इंस्टॉल या अपडेट करने के लिए डाउनलोड गेम पर क्लिक करें।",
             "Ожидание. Нажмите \"Скачать игру\", чтобы установить или обновить.",
             "Boşta. Yüklemek veya güncellemek için Oyunu İndir'e tıklayın.",
+            "Inattivo. Clicca Scarica Gioco per installare o aggiornare.",
         )
     }
 
@@ -1283,6 +1368,7 @@ impl I18n {
             "खेलें",
             "Играть",
             "Oyna",
+            "Gioca",
         )
     }
 
@@ -1298,6 +1384,7 @@ impl I18n {
             "गेम डाउनलोड करें",
             "Скачать игру",
             "Oyunu indir",
+            "Scarica Gioco",
         )
     }
 
@@ -1313,6 +1400,7 @@ impl I18n {
             "अपडेट की जाँच करें",
             "Проверить обновления",
             "Güncellemeleri kontrol et",
+            "Check for updates",
         )
     }
 
@@ -1328,6 +1416,7 @@ impl I18n {
             "रद्द करें",
             "Отмена",
             "İptal",
+            "Annulla",
         )
     }
 
@@ -1343,6 +1432,7 @@ impl I18n {
             "गेम अनइंस्टॉल करें",
             "Удалить игру",
             "Oyunu kaldır",
+            "Disinstalla gioco",
         )
     }
 
@@ -1358,6 +1448,7 @@ impl I18n {
             "अनइंस्टॉल की पुष्टि करें",
             "Подтверждение удаления",
             "Kaldırmayı onayla",
+            "Confirm uninstall",
         )
     }
 
@@ -1373,6 +1464,7 @@ impl I18n {
             "यह गेम फ़ाइलें और बंडल की गई JRE हटा देगा। क्या आप सुनिश्चित हैं?",
             "Будут удалены файлы игры и встроенная JRE. Вы уверены?",
             "Bu, oyun dosyalarını ve paketli JRE'yi kaldıracak. Emin misiniz?",
+            "This will remove the game files and bundled JRE. Are you sure?",
         )
     }
 
@@ -1388,6 +1480,7 @@ impl I18n {
             "हाँ, अनइंस्टॉल करें",
             "Да, удалить",
             "Evet, kaldır",
+            "Sì, disinstalla",
         )
     }
 
@@ -1403,6 +1496,7 @@ impl I18n {
             "रद्द करें",
             "Отмена",
             "İptal",
+            "Annulla",
         )
     }
 
@@ -1418,6 +1512,7 @@ impl I18n {
             "समाचार",
             "Новости",
             "Haberler",
+            "Notizie",
         )
     }
 
@@ -1433,6 +1528,7 @@ impl I18n {
             "कोई समाचार उपलब्ध नहीं है।",
             "Новости недоступны.",
             "Haber yok.",
+            "Nessuna notizia disponibile.",
         )
     }
 
@@ -1448,6 +1544,7 @@ impl I18n {
             Language::Hindi => format!("अपडेट उपलब्ध: {version}"),
             Language::Russian => format!("Доступно обновление: {version}"),
             Language::Turkish => format!("Güncelleme mevcut: {version}"),
+            Language::Italian => format!("Aggiornamento disponibile: {version}"),
         }
     }
 }

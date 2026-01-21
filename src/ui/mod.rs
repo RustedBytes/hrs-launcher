@@ -130,11 +130,12 @@ fn tint(color: Color32, alpha: u8) -> Color32 {
     Color32::from_rgba_premultiplied(color.r(), color.g(), color.b(), alpha)
 }
 
-const LOCALE_LANGUAGE_CODES: [(&[&str], Language); 10] = [
+const LOCALE_LANGUAGE_CODES: [(&[&str], Language); 11] = [
     (&["zh", "zho", "chi"], Language::Chinese),
     (&["hi", "hin"], Language::Hindi),
     (&["ru", "rus"], Language::Russian),
     (&["tr", "tur"], Language::Turkish),
+    (&["it", "ita"], Language::Italian),
     (&["uk", "ua", "ukr"], Language::Ukrainian),
     (&["es", "spa"], Language::Spanish),
     (&["fr", "fra", "fre"], Language::French),
@@ -188,6 +189,7 @@ mod tests {
             ("hi_IN", Language::Hindi),
             ("ru_RU", Language::Russian),
             ("tr_TR", Language::Turkish),
+            ("it_IT.UTF-8", Language::Italian),
             ("ua-UA", Language::Ukrainian),
             ("eng_US", Language::English),
         ];
