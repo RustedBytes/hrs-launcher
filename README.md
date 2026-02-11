@@ -77,6 +77,18 @@ find /usr/lib -name "libzstd.so*"
 ln -s /usr/lib/x86_64-linux-gnu/libzstd.so.1 ~/.local/share/hrs-launcher/release/package/game/latest/Client/libzstd.so 
 ```
 
+### Missing `VCRUNTIME140.dll`
+
+<img width="962" height="433" alt="Image" src="https://github.com/user-attachments/assets/55458823-b556-45de-b83d-68a2730f68cf" />
+
+**Solution: Install Microsoft Visual C++ Redistributables**
+
+1. Navigate to the official Microsoft Learn website and locate the page for "Microsoft Visual C++ Redistributable latest supported downloads."
+2. Locate the section for Visual Studio 2015, 2017, 2019, and 2022.
+3. Download both the **x86** and **x64** architecture installers. Evidence indicates that installing both versions prevents conflicts, as 64-bit systems often run 32-bit applications that require the x86 library.
+4. Execute both installer files and follow the prompts.
+5. Restart the operating system to ensure the components register correctly.
+
 ## Acknowledgements
 
 - https://github.com/yyyumeniku/HyPrism
